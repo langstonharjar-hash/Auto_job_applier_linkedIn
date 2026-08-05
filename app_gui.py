@@ -4,6 +4,7 @@ Features:
 - Version Selection: Interactive Mode vs Auto Mode (No confirmation, random delays <30s)
 - Process Controls: Start Script and Terminate Script
 - Sidebar: Real-time Live Log of Successfully Applied Jobs
+- Settings Menu: In-app editor for automation parameters (Search terms, location, filters, salary, delays)
 - Embedded / Docked Chrome Browser View via Win32 API
 """
 
@@ -17,6 +18,8 @@ import subprocess
 import tkinter as tk
 import customtkinter as ctk
 
+from modules.config_manager import load_all_settings, save_all_settings
+
 # Try importing win32 modules for browser window docking
 try:
     import win32gui
@@ -28,6 +31,200 @@ except ImportError:
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
+
+
+class SettingsWindow(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.title("Automation Settings & Preferences")
+        self.geometry("680x720")
+        self.resizable(False, False)
+        self.grab_set()  # Modal window
+
+        self.current_settings = load_all_settings()
+        self._build_ui()
+
+    def _build_ui(self):
+        # Header
+        header = ctk.CTkFrame(self, fg_color="transparent")
+        header.pack(fill="x", padx=20, pady=(15, 5))
+
+        title = ctk.CTkLabel(header, text="⚙️ Automation Settings & Preferences", font=ctk.CTkFont(size=18, weight="bold"))
+        title.pack(side="left")
+
+        # Scrollable Form
+        form = ctk.CTkScrollableFrame(self, fg_color="#161B22", corner_radius=8)
+        form.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # SECTION 1: SEARCH PREFERENCES
+        sec1_lbl = ctk.CTkLabel(form, text="🔍 Job Search Preferences", font=ctk.CTkFont(size=14, weight="bold"), text_color="#388BFD")
+        sec1_lbl.pack(anchor="w", padx=10, pady=(10, 5))
+
+        # Search Terms
+        ctk.CTkLabel(form, text="Search Titles / Keywords (comma separated):", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=10, pady=(5, 2))
+        self.terms_entry = ctk.CTkEntry(form, placeholder_text="e.g. Data Analyst, Software Engineer", width=580)
+        self.terms_entry.pack(anchor="w", padx=10, pady=(0, 10))
+        terms_str = ", ".join(self.current_settings.get("search_terms", []))
+        self.terms_entry.insert(0, terms_str)
+
+        # Search Location
+        ctk.CTkLabel(form, text="Search Location:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=10, pady=(5, 2))
+        self.location_entry = ctk.CTkEntry(form, placeholder_text="e.g. San Francisco or United States", width=580)
+        self.location_entry.pack(anchor="w", padx=10, pady=(0, 10))
+        self.location_entry.insert(0, self.current_settings.get("search_location", ""))
+
+        # Date Posted Filter
+        ctk.CTkLabel(form, text="Date Posted Filter:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=10, pady=(5, 2))
+        self.date_posted_menu = ctk.CTkOptionMenu(
+            form, values=["Past 24 hours", "Past week", "Past month", "Any time", ""], width=200
+        )
+        self.date_posted_menu.pack(anchor="w", padx=10, pady=(0, 10))
+        self.date_posted_menu.set(self.current_settings.get("date_posted", "Past week"))
+
+        # On-Site / Remote Checkboxes
+        ctk.CTkLabel(form, text="Work Location Modes:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=10, pady=(5, 2))
+        mode_frame = ctk.CTkFrame(form, fg_color="transparent")
+        mode_frame.pack(anchor="w", padx=10, pady=(0, 10))
+
+        curr_modes = self.current_settings.get("on_site", [])
+        self.mode_remote_var = ctk.BooleanVar(value="Remote" in curr_modes)
+        self.mode_hybrid_var = ctk.BooleanVar(value="Hybrid" in curr_modes)
+        self.mode_onsite_var = ctk.BooleanVar(value="On-site" in curr_modes)
+
+        ctk.CTkCheckBox(mode_frame, text="Remote", variable=self.mode_remote_var).pack(side="left", padx=(0, 15))
+        ctk.CTkCheckBox(mode_frame, text="Hybrid", variable=self.mode_hybrid_var).pack(side="left", padx=(0, 15))
+        ctk.CTkCheckBox(mode_frame, text="On-site", variable=self.mode_onsite_var).pack(side="left")
+
+        # Job Types Checkboxes
+        ctk.CTkLabel(form, text="Job Types:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=10, pady=(5, 2))
+        type_frame = ctk.CTkFrame(form, fg_color="transparent")
+        type_frame.pack(anchor="w", padx=10, pady=(0, 10))
+
+        curr_types = self.current_settings.get("job_type", [])
+        self.type_ft_var = ctk.BooleanVar(value="Full-time" in curr_types)
+        self.type_contract_var = ctk.BooleanVar(value="Contract" in curr_types)
+        self.type_pt_var = ctk.BooleanVar(value="Part-time" in curr_types)
+
+        ctk.CTkCheckBox(type_frame, text="Full-time", variable=self.type_ft_var).pack(side="left", padx=(0, 15))
+        ctk.CTkCheckBox(type_frame, text="Contract", variable=self.type_contract_var).pack(side="left", padx=(0, 15))
+        ctk.CTkCheckBox(type_frame, text="Part-time", variable=self.type_pt_var).pack(side="left")
+
+        # Divider
+        ctk.CTkFrame(form, height=1, fg_color="#2A2D32").pack(fill="x", padx=10, pady=10)
+
+        # SECTION 2: PERSONAL & SALARY
+        sec2_lbl = ctk.CTkLabel(form, text="👤 Personal & Salary Target", font=ctk.CTkFont(size=14, weight="bold"), text_color="#2EA043")
+        sec2_lbl.pack(anchor="w", padx=10, pady=(5, 5))
+
+        sal_frame = ctk.CTkFrame(form, fg_color="transparent")
+        sal_frame.pack(anchor="w", padx=10, pady=(0, 10))
+
+        # Desired Salary
+        f1 = ctk.CTkFrame(sal_frame, fg_color="transparent")
+        f1.pack(side="left", padx=(0, 20))
+        ctk.CTkLabel(f1, text="Target Desired Salary ($):", font=ctk.CTkFont(size=12)).pack(anchor="w")
+        self.salary_entry = ctk.CTkEntry(f1, width=170)
+        self.salary_entry.pack(anchor="w", pady=(2, 0))
+        self.salary_entry.insert(0, str(self.current_settings.get("desired_salary", 120000)))
+
+        # Current Experience
+        f2 = ctk.CTkFrame(sal_frame, fg_color="transparent")
+        f2.pack(side="left", padx=(0, 20))
+        ctk.CTkLabel(f2, text="Current Experience (years):", font=ctk.CTkFont(size=12)).pack(anchor="w")
+        self.exp_entry = ctk.CTkEntry(f2, width=170)
+        self.exp_entry.pack(anchor="w", pady=(2, 0))
+        self.exp_entry.insert(0, str(self.current_settings.get("current_experience", 7)))
+
+        # Notice Period
+        f3 = ctk.CTkFrame(sal_frame, fg_color="transparent")
+        f3.pack(side="left")
+        ctk.CTkLabel(f3, text="Notice Period (days):", font=ctk.CTkFont(size=12)).pack(anchor="w")
+        self.notice_entry = ctk.CTkEntry(f3, width=170)
+        self.notice_entry.pack(anchor="w", pady=(2, 0))
+        self.notice_entry.insert(0, str(self.current_settings.get("notice_period", 14)))
+
+        # Divider
+        ctk.CTkFrame(form, height=1, fg_color="#2A2D32").pack(fill="x", padx=10, pady=10)
+
+        # SECTION 3: BOT OPTIONS
+        sec3_lbl = ctk.CTkLabel(form, text="⚙️ Bot Controls & Delays", font=ctk.CTkFont(size=14, weight="bold"), text_color="#E3B341")
+        sec3_lbl.pack(anchor="w", padx=10, pady=(5, 5))
+
+        bot_frame = ctk.CTkFrame(form, fg_color="transparent")
+        bot_frame.pack(anchor="w", padx=10, pady=(0, 10))
+
+        # Click Gap
+        bf1 = ctk.CTkFrame(bot_frame, fg_color="transparent")
+        bf1.pack(side="left", padx=(0, 20))
+        ctk.CTkLabel(bf1, text="Action Click Gap (seconds):", font=ctk.CTkFont(size=12)).pack(anchor="w")
+        self.gap_entry = ctk.CTkEntry(bf1, width=170)
+        self.gap_entry.pack(anchor="w", pady=(2, 0))
+        self.gap_entry.insert(0, str(self.current_settings.get("click_gap", 1)))
+
+        # Chrome Profile
+        bf2 = ctk.CTkFrame(bot_frame, fg_color="transparent")
+        bf2.pack(side="left")
+        ctk.CTkLabel(bf2, text="Chrome Profile Directory:", font=ctk.CTkFont(size=12)).pack(anchor="w")
+        self.profile_entry = ctk.CTkEntry(bf2, width=170)
+        self.profile_entry.pack(anchor="w", pady=(2, 0))
+        self.profile_entry.insert(0, str(self.current_settings.get("chrome_profile", "Default")))
+
+        # Action Buttons Footer
+        footer = ctk.CTkFrame(self, fg_color="transparent")
+        footer.pack(fill="x", padx=20, pady=(5, 15))
+
+        self.save_btn = ctk.CTkButton(
+            footer, text="💾 Save Settings", font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color="#2EA043", hover_color="#268637", height=36, width=140, command=self.save_settings
+        )
+        self.save_btn.pack(side="right", padx=(10, 0))
+
+        self.cancel_btn = ctk.CTkButton(
+            footer, text="Cancel", font=ctk.CTkFont(size=14),
+            fg_color="#30363D", hover_color="#484F58", height=36, width=100, command=self.destroy
+        )
+        self.cancel_btn.pack(side="right")
+
+    def save_settings(self):
+        try:
+            # Parse terms
+            raw_terms = self.terms_entry.get().strip()
+            terms_list = [t.strip() for t in raw_terms.split(",") if t.strip()]
+
+            # Work modes
+            modes = []
+            if self.mode_remote_var.get(): modes.append("Remote")
+            if self.mode_hybrid_var.get(): modes.append("Hybrid")
+            if self.mode_onsite_var.get(): modes.append("On-site")
+
+            # Job types
+            types = []
+            if self.type_ft_var.get(): types.append("Full-time")
+            if self.type_contract_var.get(): types.append("Contract")
+            if self.type_pt_var.get(): types.append("Part-time")
+
+            new_data = {
+                "search_terms": terms_list if terms_list else ["Data Analyst"],
+                "search_location": self.location_entry.get().strip(),
+                "date_posted": self.date_posted_menu.get(),
+                "on_site": modes,
+                "job_type": types,
+                "desired_salary": int(float(self.salary_entry.get() or 120000)),
+                "current_experience": int(float(self.exp_entry.get() or 7)),
+                "notice_period": int(float(self.notice_entry.get() or 14)),
+                "click_gap": int(float(self.gap_entry.get() or 1)),
+                "chrome_profile": self.profile_entry.get().strip() or "Default"
+            }
+
+            if save_all_settings(new_data):
+                self.parent.log_console("Settings successfully updated and saved to config files!")
+                self.destroy()
+            else:
+                self.parent.log_console("Failed to save some settings. Please check config file permissions.")
+        except Exception as e:
+            self.parent.log_console(f"Error saving settings: {e}")
+
 
 class AutoJobApplierApp(ctk.CTk):
     def __init__(self):
@@ -68,11 +265,17 @@ class AutoJobApplierApp(ctk.CTk):
         header_frame.grid(row=0, column=0, padx=15, pady=(15, 5), sticky="ew")
 
         title_label = ctk.CTkLabel(header_frame, text="Auto Job Applier", font=ctk.CTkFont(size=20, weight="bold"))
-        title_label.pack(side="left", padx=5)
+        title_label.pack(side="left", padx=2)
 
         self.status_badge = ctk.CTkLabel(header_frame, text="IDLE", font=ctk.CTkFont(size=11, weight="bold"),
                                          fg_color="#3A3D40", text_color="#AAAAAA", corner_radius=6, padx=8, pady=2)
-        self.status_badge.pack(side="right", padx=5)
+        self.status_badge.pack(side="right", padx=2)
+
+        self.settings_btn = ctk.CTkButton(
+            header_frame, text="⚙️ Settings", font=ctk.CTkFont(size=12, weight="bold"),
+            width=85, height=28, fg_color="#21262D", hover_color="#30363D", command=self.open_settings_window
+        )
+        self.settings_btn.pack(side="right", padx=5)
 
         # Divider
         divider1 = ctk.CTkFrame(self.sidebar, height=2, fg_color="#2A2D32")
@@ -85,19 +288,19 @@ class AutoJobApplierApp(ctk.CTk):
         mode_title = ctk.CTkLabel(mode_frame, text="Select Script Mode:", font=ctk.CTkFont(size=13, weight="bold"))
         mode_title.pack(anchor="w", padx=12, pady=(10, 5))
 
-        self.mode_var = ctk.StringVar(value="auto")
+        self.mode_var = ctk.StringVar(value="interactive")
+
+        self.radio_interactive = ctk.CTkRadioButton(
+            mode_frame, text="🔵 Interactive Mode (Standard / Default)", 
+            variable=self.mode_var, value="interactive", font=ctk.CTkFont(size=12)
+        )
+        self.radio_interactive.pack(anchor="w", padx=15, pady=5)
 
         self.radio_auto = ctk.CTkRadioButton(
             mode_frame, text="⚡ Auto Mode (No prompt, delays <30s)", 
             variable=self.mode_var, value="auto", font=ctk.CTkFont(size=12)
         )
-        self.radio_auto.pack(anchor="w", padx=15, pady=5)
-
-        self.radio_interactive = ctk.CTkRadioButton(
-            mode_frame, text="🔵 Interactive Mode (Standard / As Is)", 
-            variable=self.mode_var, value="interactive", font=ctk.CTkFont(size=12)
-        )
-        self.radio_interactive.pack(anchor="w", padx=15, pady=(5, 10))
+        self.radio_auto.pack(anchor="w", padx=15, pady=(5, 10))
 
         # Control Buttons (Start / Terminate)
         controls_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
@@ -160,6 +363,9 @@ class AutoJobApplierApp(ctk.CTk):
             font=ctk.CTkFont(size=14), text_color="#8B949E"
         )
         self.browser_placeholder.place(relx=0.5, rely=0.5, anchor="center")
+
+    def open_settings_window(self):
+        SettingsWindow(self)
 
     def log_console(self, text):
         self.console_box.configure(state="normal")
