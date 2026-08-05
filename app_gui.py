@@ -15,6 +15,7 @@ import sys
 import csv
 import time
 import signal
+import importlib
 import threading
 import subprocess
 import tkinter as tk
@@ -364,6 +365,14 @@ class AutoJobApplierApp(ctk.CTk):
         )
         self.settings_btn.pack(side="left", padx=(10, 0))
 
+        # Refresh App / Reload Configs Button
+        self.refresh_btn = ctk.CTkButton(
+            kpi_frame, text="🔄 Refresh App", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=COLOR_CARD, hover_color=COLOR_CARD_HOVER, border_width=1, border_color=COLOR_BORDER,
+            width=110, height=32, corner_radius=8, command=self.refresh_app
+        )
+        self.refresh_btn.pack(side="left", padx=(8, 0))
+
     def _build_sidebar(self):
         self.sidebar = ctk.CTkFrame(self, width=440, fg_color=COLOR_PANEL, corner_radius=0)
         self.sidebar.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
@@ -471,6 +480,31 @@ class AutoJobApplierApp(ctk.CTk):
 
     def open_settings_window(self):
         ModernSettingsWindow(self)
+
+    def refresh_app(self):
+        """Reloads configuration modules and restarts the GUI process so code/config changes take effect immediately."""
+        self.log_console("Refreshing application and reloading configurations...")
+        try:
+            import config.search
+            import config.questions
+            import config.settings
+            import config.secrets
+            import config.personals
+
+            importlib.reload(config.search)
+            importlib.reload(config.questions)
+            importlib.reload(config.settings)
+            importlib.reload(config.secrets)
+            importlib.reload(config.personals)
+
+            self._render_jobs_feed()
+            self.log_console("Configurations reloaded cleanly!")
+
+            if not self.is_running:
+                self.destroy()
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+        except Exception as e:
+            self.log_console(f"Refresh error: {e}")
 
     def log_console(self, text):
         self.console_box.configure(state="normal")
