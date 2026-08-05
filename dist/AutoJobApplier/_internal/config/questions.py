@@ -44,7 +44,7 @@ us_citizenship = "U.S. Citizen/Permanent Resident"
 ## SOME ANNOYING QUESTIONS BY COMPANIES 🫠 ##
 
 # What to enter in your desired salary question (American and European), What is your expected CTC (South Asian and others)?, only enter in numbers as some companies only allow numbers,
-J00000# 80000, 90000, 100000 or 120000 and so on... Do NOT use quotes
+desired_salary = 125000# 80000, 90000, 100000 or 120000 and so on... Do NOT use quotes
 '''
 Note: If question has the word "lakhs" in it (Example: What is your expected CTC in lakhs), 
 then it will add '.' before last 5 digits and answer. Examples: 
@@ -71,7 +71,7 @@ then it will add '.' before last 5 digits and answer. Examples:
 # currency = "INR"                 # "USD", "INR", "EUR", etc.
 
 # What is your notice period in days?
-L# Any number >= 0 without quotes. Eg: 0, 7, 15, 30, 45, etc.
+notice_period = 14# Any number >= 0 without quotes. Eg: 0, 7, 15, 30, 45, etc.
 '''
 Note: If question has 'month' or 'week' in it (Example: What is your notice period in months), 
 then it will divide by 30 or 7 and answer respectively. Examples:

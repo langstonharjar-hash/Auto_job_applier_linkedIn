@@ -1,11 +1,13 @@
 """
-Auto Job Applier LinkedIn - Desktop GUI Application
+Auto Job Applier LinkedIn - Ultra-Modern Dashboard GUI
 Features:
-- Version Selection: Interactive Mode vs Auto Mode (No confirmation, random delays <30s)
-- Process Controls: Start Script and Terminate Script
-- Sidebar: Real-time Live Log of Successfully Applied Jobs
-- Settings Menu: In-app editor for automation parameters (Search terms, location, filters, salary, delays)
-- Embedded / Docked Chrome Browser View via Win32 API
+- Premium Dark Obsidian & Slate Aesthetics
+- Live KPI Metrics Header Bar (Jobs Count, Current Mode, Status)
+- Mode Selector: Interactive Mode (Default) vs Auto Mode (Delays <30s)
+- Process Controls: Start Automation & Terminate Process
+- Card-Based Live Feed for Successfully Applied Jobs
+- Redesigned Settings Modal Window for all automation preferences
+- Embedded Chrome Browser View Container via Win32 API
 """
 
 import os
@@ -29,176 +31,222 @@ try:
 except ImportError:
     HAS_WIN32 = False
 
+# Set Modern Appearance Theme
 ctk.set_appearance_mode("Dark")
-ctk.set_default_color_theme("blue")
+ctk.set_default_color_theme("dark-blue")
+
+# Design Tokens
+COLOR_BG = "#0B0F19"           # Deep Obsidian Navy
+COLOR_PANEL = "#151C2C"        # Dark Slate Panel
+COLOR_CARD = "#1E293B"         # Card Background
+COLOR_CARD_HOVER = "#2D3B53"   # Card Hover Highlight
+COLOR_BORDER = "#2A364F"       # Subtle Border
+COLOR_TEXT_MAIN = "#F8FAFC"    # Off-white main text
+COLOR_TEXT_MUTED = "#94A3B8"   # Slate muted text
+
+COLOR_PRIMARY = "#6366F1"      # Indigo Accent
+COLOR_SUCCESS = "#10B981"      # Emerald Green
+COLOR_WARNING = "#F59E0B"      # Amber
+COLOR_DANGER = "#EF4444"       # Coral Crimson
+COLOR_CYAN = "#06B6D4"         # Electric Cyan
 
 
-class SettingsWindow(ctk.CTkToplevel):
+class ModernSettingsWindow(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
-        self.title("Automation Settings & Preferences")
-        self.geometry("680x720")
+        self.title("Automation Preferences & Settings")
+        self.geometry("720x760")
         self.resizable(False, False)
+        self.configure(fg_color=COLOR_BG)
         self.grab_set()  # Modal window
 
         self.current_settings = load_all_settings()
         self._build_ui()
 
     def _build_ui(self):
-        # Header
-        header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", padx=20, pady=(15, 5))
+        # Header Bar
+        header = ctk.CTkFrame(self, fg_color=COLOR_PANEL, corner_radius=12, border_width=1, border_color=COLOR_BORDER)
+        header.pack(fill="x", padx=20, pady=(20, 10))
 
-        title = ctk.CTkLabel(header, text="⚙️ Automation Settings & Preferences", font=ctk.CTkFont(size=18, weight="bold"))
-        title.pack(side="left")
+        title_label = ctk.CTkLabel(
+            header, text="⚙️  Automation Preferences", 
+            font=ctk.CTkFont(size=18, weight="bold"), text_color=COLOR_TEXT_MAIN
+        )
+        title_label.pack(side="left", padx=15, pady=12)
 
-        # Scrollable Form
-        form = ctk.CTkScrollableFrame(self, fg_color="#161B22", corner_radius=8)
+        subtitle_label = ctk.CTkLabel(
+            header, text="Configure your search parameters, salary target & bot options", 
+            font=ctk.CTkFont(size=11), text_color=COLOR_TEXT_MUTED
+        )
+        subtitle_label.pack(side="right", padx=15, pady=12)
+
+        # Scrollable Form Body
+        form = ctk.CTkScrollableFrame(self, fg_color=COLOR_PANEL, corner_radius=12, border_width=1, border_color=COLOR_BORDER)
         form.pack(fill="both", expand=True, padx=20, pady=10)
 
-        # SECTION 1: SEARCH PREFERENCES
-        sec1_lbl = ctk.CTkLabel(form, text="🔍 Job Search Preferences", font=ctk.CTkFont(size=14, weight="bold"), text_color="#388BFD")
-        sec1_lbl.pack(anchor="w", padx=10, pady=(10, 5))
+        # --- SECTION 1: SEARCH PREFERENCES ---
+        sec1_frame = ctk.CTkFrame(form, fg_color="transparent")
+        sec1_frame.pack(fill="x", padx=10, pady=(10, 15))
+
+        sec1_lbl = ctk.CTkLabel(
+            sec1_frame, text="🔍  JOB SEARCH PARAMETERS", 
+            font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_CYAN
+        )
+        sec1_lbl.pack(anchor="w", pady=(0, 8))
 
         # Search Terms
-        ctk.CTkLabel(form, text="Search Titles / Keywords (comma separated):", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=10, pady=(5, 2))
-        self.terms_entry = ctk.CTkEntry(form, placeholder_text="e.g. Data Analyst, Software Engineer", width=580)
-        self.terms_entry.pack(anchor="w", padx=10, pady=(0, 10))
-        terms_str = ", ".join(self.current_settings.get("search_terms", []))
-        self.terms_entry.insert(0, terms_str)
+        ctk.CTkLabel(form, text="Search Keywords / Titles (comma separated):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=10, pady=(5, 2))
+        self.terms_entry = ctk.CTkEntry(form, placeholder_text="e.g. Data Analyst, Software Engineer", height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.terms_entry.pack(fill="x", padx=10, pady=(0, 12))
+        self.terms_entry.insert(0, ", ".join(self.current_settings.get("search_terms", [])))
+
+        # Location & Date Posted Row
+        loc_row = ctk.CTkFrame(form, fg_color="transparent")
+        loc_row.pack(fill="x", padx=10, pady=(0, 12))
 
         # Search Location
-        ctk.CTkLabel(form, text="Search Location:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=10, pady=(5, 2))
-        self.location_entry = ctk.CTkEntry(form, placeholder_text="e.g. San Francisco or United States", width=580)
-        self.location_entry.pack(anchor="w", padx=10, pady=(0, 10))
+        loc_col = ctk.CTkFrame(loc_row, fg_color="transparent")
+        loc_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        ctk.CTkLabel(loc_col, text="Search Location:", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
+        self.location_entry = ctk.CTkEntry(loc_col, placeholder_text="e.g. San Francisco or United States", height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.location_entry.pack(fill="x")
         self.location_entry.insert(0, self.current_settings.get("search_location", ""))
 
-        # Date Posted Filter
-        ctk.CTkLabel(form, text="Date Posted Filter:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=10, pady=(5, 2))
+        # Date Posted
+        date_col = ctk.CTkFrame(loc_row, fg_color="transparent")
+        date_col.pack(side="right", width=220)
+        ctk.CTkLabel(date_col, text="Date Posted Filter:", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
         self.date_posted_menu = ctk.CTkOptionMenu(
-            form, values=["Past 24 hours", "Past week", "Past month", "Any time", ""], width=200
+            date_col, values=["Past 24 hours", "Past week", "Past month", "Any time", ""],
+            height=38, fg_color=COLOR_CARD, button_color=COLOR_PRIMARY, button_hover_color="#4F46E5"
         )
-        self.date_posted_menu.pack(anchor="w", padx=10, pady=(0, 10))
+        self.date_posted_menu.pack(fill="x")
         self.date_posted_menu.set(self.current_settings.get("date_posted", "Past week"))
 
-        # On-Site / Remote Checkboxes
-        ctk.CTkLabel(form, text="Work Location Modes:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=10, pady=(5, 2))
-        mode_frame = ctk.CTkFrame(form, fg_color="transparent")
-        mode_frame.pack(anchor="w", padx=10, pady=(0, 10))
+        # Work Modes & Job Types Row
+        filters_row = ctk.CTkFrame(form, fg_color=COLOR_CARD, corner_radius=8, border_width=1, border_color=COLOR_BORDER)
+        filters_row.pack(fill="x", padx=10, pady=(0, 15))
+
+        f_inner = ctk.CTkFrame(filters_row, fg_color="transparent")
+        f_inner.pack(fill="x", padx=12, pady=10)
+
+        # Work Modes Checkboxes
+        ctk.CTkLabel(f_inner, text="Work Location Modes:", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 5))
+        mode_box = ctk.CTkFrame(f_inner, fg_color="transparent")
+        mode_box.pack(anchor="w", pady=(0, 10))
 
         curr_modes = self.current_settings.get("on_site", [])
         self.mode_remote_var = ctk.BooleanVar(value="Remote" in curr_modes)
         self.mode_hybrid_var = ctk.BooleanVar(value="Hybrid" in curr_modes)
         self.mode_onsite_var = ctk.BooleanVar(value="On-site" in curr_modes)
 
-        ctk.CTkCheckBox(mode_frame, text="Remote", variable=self.mode_remote_var).pack(side="left", padx=(0, 15))
-        ctk.CTkCheckBox(mode_frame, text="Hybrid", variable=self.mode_hybrid_var).pack(side="left", padx=(0, 15))
-        ctk.CTkCheckBox(mode_frame, text="On-site", variable=self.mode_onsite_var).pack(side="left")
+        ctk.CTkCheckBox(mode_box, text="Remote", variable=self.mode_remote_var, fg_color=COLOR_PRIMARY).pack(side="left", padx=(0, 20))
+        ctk.CTkCheckBox(mode_box, text="Hybrid", variable=self.mode_hybrid_var, fg_color=COLOR_PRIMARY).pack(side="left", padx=(0, 20))
+        ctk.CTkCheckBox(mode_box, text="On-site", variable=self.mode_onsite_var, fg_color=COLOR_PRIMARY).pack(side="left")
 
         # Job Types Checkboxes
-        ctk.CTkLabel(form, text="Job Types:", font=ctk.CTkFont(size=12)).pack(anchor="w", padx=10, pady=(5, 2))
-        type_frame = ctk.CTkFrame(form, fg_color="transparent")
-        type_frame.pack(anchor="w", padx=10, pady=(0, 10))
+        ctk.CTkLabel(f_inner, text="Job Types:", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 5))
+        type_box = ctk.CTkFrame(f_inner, fg_color="transparent")
+        type_box.pack(anchor="w")
 
         curr_types = self.current_settings.get("job_type", [])
         self.type_ft_var = ctk.BooleanVar(value="Full-time" in curr_types)
         self.type_contract_var = ctk.BooleanVar(value="Contract" in curr_types)
         self.type_pt_var = ctk.BooleanVar(value="Part-time" in curr_types)
 
-        ctk.CTkCheckBox(type_frame, text="Full-time", variable=self.type_ft_var).pack(side="left", padx=(0, 15))
-        ctk.CTkCheckBox(type_frame, text="Contract", variable=self.type_contract_var).pack(side="left", padx=(0, 15))
-        ctk.CTkCheckBox(type_frame, text="Part-time", variable=self.type_pt_var).pack(side="left")
+        ctk.CTkCheckBox(type_box, text="Full-time", variable=self.type_ft_var, fg_color=COLOR_PRIMARY).pack(side="left", padx=(0, 20))
+        ctk.CTkCheckBox(type_box, text="Contract", variable=self.type_contract_var, fg_color=COLOR_PRIMARY).pack(side="left", padx=(0, 20))
+        ctk.CTkCheckBox(type_box, text="Part-time", variable=self.type_pt_var, fg_color=COLOR_PRIMARY).pack(side="left")
 
-        # Divider
-        ctk.CTkFrame(form, height=1, fg_color="#2A2D32").pack(fill="x", padx=10, pady=10)
+        # --- SECTION 2: PERSONAL & SALARY ---
+        ctk.CTkFrame(form, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=10, pady=10)
 
-        # SECTION 2: PERSONAL & SALARY
-        sec2_lbl = ctk.CTkLabel(form, text="👤 Personal & Salary Target", font=ctk.CTkFont(size=14, weight="bold"), text_color="#2EA043")
-        sec2_lbl.pack(anchor="w", padx=10, pady=(5, 5))
+        sec2_lbl = ctk.CTkLabel(
+            form, text="👤  PERSONAL & SALARY TARGETS", 
+            font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_SUCCESS
+        )
+        sec2_lbl.pack(anchor="w", padx=10, pady=(5, 10))
 
-        sal_frame = ctk.CTkFrame(form, fg_color="transparent")
-        sal_frame.pack(anchor="w", padx=10, pady=(0, 10))
+        sal_row = ctk.CTkFrame(form, fg_color="transparent")
+        sal_row.pack(fill="x", padx=10, pady=(0, 15))
 
         # Desired Salary
-        f1 = ctk.CTkFrame(sal_frame, fg_color="transparent")
-        f1.pack(side="left", padx=(0, 20))
-        ctk.CTkLabel(f1, text="Target Desired Salary ($):", font=ctk.CTkFont(size=12)).pack(anchor="w")
-        self.salary_entry = ctk.CTkEntry(f1, width=170)
-        self.salary_entry.pack(anchor="w", pady=(2, 0))
+        c1 = ctk.CTkFrame(sal_row, fg_color="transparent")
+        c1.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        ctk.CTkLabel(c1, text="Target Desired Salary ($):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
+        self.salary_entry = ctk.CTkEntry(c1, height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.salary_entry.pack(fill="x")
         self.salary_entry.insert(0, str(self.current_settings.get("desired_salary", 120000)))
 
-        # Current Experience
-        f2 = ctk.CTkFrame(sal_frame, fg_color="transparent")
-        f2.pack(side="left", padx=(0, 20))
-        ctk.CTkLabel(f2, text="Current Experience (years):", font=ctk.CTkFont(size=12)).pack(anchor="w")
-        self.exp_entry = ctk.CTkEntry(f2, width=170)
-        self.exp_entry.pack(anchor="w", pady=(2, 0))
+        # Experience
+        c2 = ctk.CTkFrame(sal_row, fg_color="transparent")
+        c2.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        ctk.CTkLabel(c2, text="Experience (years):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
+        self.exp_entry = ctk.CTkEntry(c2, height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.exp_entry.pack(fill="x")
         self.exp_entry.insert(0, str(self.current_settings.get("current_experience", 7)))
 
         # Notice Period
-        f3 = ctk.CTkFrame(sal_frame, fg_color="transparent")
-        f3.pack(side="left")
-        ctk.CTkLabel(f3, text="Notice Period (days):", font=ctk.CTkFont(size=12)).pack(anchor="w")
-        self.notice_entry = ctk.CTkEntry(f3, width=170)
-        self.notice_entry.pack(anchor="w", pady=(2, 0))
+        c3 = ctk.CTkFrame(sal_row, fg_color="transparent")
+        c3.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(c3, text="Notice Period (days):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
+        self.notice_entry = ctk.CTkEntry(c3, height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.notice_entry.pack(fill="x")
         self.notice_entry.insert(0, str(self.current_settings.get("notice_period", 14)))
 
-        # Divider
-        ctk.CTkFrame(form, height=1, fg_color="#2A2D32").pack(fill="x", padx=10, pady=10)
+        # --- SECTION 3: BOT OPTIONS ---
+        ctk.CTkFrame(form, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=10, pady=10)
 
-        # SECTION 3: BOT OPTIONS
-        sec3_lbl = ctk.CTkLabel(form, text="⚙️ Bot Controls & Delays", font=ctk.CTkFont(size=14, weight="bold"), text_color="#E3B341")
-        sec3_lbl.pack(anchor="w", padx=10, pady=(5, 5))
+        sec3_lbl = ctk.CTkLabel(
+            form, text="⚡  BOT CONTROLS & DELAYS", 
+            font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_WARNING
+        )
+        sec3_lbl.pack(anchor="w", padx=10, pady=(5, 10))
 
-        bot_frame = ctk.CTkFrame(form, fg_color="transparent")
-        bot_frame.pack(anchor="w", padx=10, pady=(0, 10))
+        bot_row = ctk.CTkFrame(form, fg_color="transparent")
+        bot_row.pack(fill="x", padx=10, pady=(0, 15))
 
-        # Click Gap
-        bf1 = ctk.CTkFrame(bot_frame, fg_color="transparent")
-        bf1.pack(side="left", padx=(0, 20))
-        ctk.CTkLabel(bf1, text="Action Click Gap (seconds):", font=ctk.CTkFont(size=12)).pack(anchor="w")
-        self.gap_entry = ctk.CTkEntry(bf1, width=170)
-        self.gap_entry.pack(anchor="w", pady=(2, 0))
+        bc1 = ctk.CTkFrame(bot_row, fg_color="transparent")
+        bc1.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        ctk.CTkLabel(bc1, text="Action Delay Gap (seconds):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
+        self.gap_entry = ctk.CTkEntry(bc1, height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.gap_entry.pack(fill="x")
         self.gap_entry.insert(0, str(self.current_settings.get("click_gap", 1)))
 
-        # Chrome Profile
-        bf2 = ctk.CTkFrame(bot_frame, fg_color="transparent")
-        bf2.pack(side="left")
-        ctk.CTkLabel(bf2, text="Chrome Profile Directory:", font=ctk.CTkFont(size=12)).pack(anchor="w")
-        self.profile_entry = ctk.CTkEntry(bf2, width=170)
-        self.profile_entry.pack(anchor="w", pady=(2, 0))
+        bc2 = ctk.CTkFrame(bot_row, fg_color="transparent")
+        bc2.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(bc2, text="Chrome Profile:", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
+        self.profile_entry = ctk.CTkEntry(bc2, height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.profile_entry.pack(fill="x")
         self.profile_entry.insert(0, str(self.current_settings.get("chrome_profile", "Default")))
 
-        # Action Buttons Footer
+        # Footer Action Buttons
         footer = ctk.CTkFrame(self, fg_color="transparent")
-        footer.pack(fill="x", padx=20, pady=(5, 15))
+        footer.pack(fill="x", padx=20, pady=(5, 20))
 
         self.save_btn = ctk.CTkButton(
-            footer, text="💾 Save Settings", font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color="#2EA043", hover_color="#268637", height=36, width=140, command=self.save_settings
+            footer, text="💾  Save & Apply Settings", font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color=COLOR_SUCCESS, hover_color="#059669", height=42, width=180, command=self.save_settings
         )
         self.save_btn.pack(side="right", padx=(10, 0))
 
         self.cancel_btn = ctk.CTkButton(
             footer, text="Cancel", font=ctk.CTkFont(size=14),
-            fg_color="#30363D", hover_color="#484F58", height=36, width=100, command=self.destroy
+            fg_color="#334155", hover_color="#475569", height=42, width=100, command=self.destroy
         )
         self.cancel_btn.pack(side="right")
 
     def save_settings(self):
         try:
-            # Parse terms
             raw_terms = self.terms_entry.get().strip()
             terms_list = [t.strip() for t in raw_terms.split(",") if t.strip()]
 
-            # Work modes
             modes = []
             if self.mode_remote_var.get(): modes.append("Remote")
             if self.mode_hybrid_var.get(): modes.append("Hybrid")
             if self.mode_onsite_var.get(): modes.append("On-site")
 
-            # Job types
             types = []
             if self.type_ft_var.get(): types.append("Full-time")
             if self.type_contract_var.get(): types.append("Contract")
@@ -218,10 +266,10 @@ class SettingsWindow(ctk.CTkToplevel):
             }
 
             if save_all_settings(new_data):
-                self.parent.log_console("Settings successfully updated and saved to config files!")
+                self.parent.log_console("Settings saved cleanly to config files!")
                 self.destroy()
             else:
-                self.parent.log_console("Failed to save some settings. Please check config file permissions.")
+                self.parent.log_console("Notice: Some settings files could not be written.")
         except Exception as e:
             self.parent.log_console(f"Error saving settings: {e}")
 
@@ -230,142 +278,199 @@ class AutoJobApplierApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Auto Job Applier LinkedIn")
-        self.geometry("1400x850")
-        self.minsize(1100, 700)
+        self.title("Auto Job Applier LinkedIn - Pro Dashboard")
+        self.geometry("1450x880")
+        self.minsize(1150, 720)
+        self.configure(fg_color=COLOR_BG)
 
         self.bot_process = None
         self.is_running = False
-        self.last_applied_count = 0
         self.applied_jobs_data = []
 
-        # Configure root grid
-        self.grid_columnconfigure(0, weight=0)  # Sidebar fixed width
-        self.grid_columnconfigure(1, weight=1)  # Main panel (Browser Container)
-        self.grid_rowconfigure(0, weight=1)
+        # Configure root layout grid
+        self.grid_columnconfigure(0, weight=0)  # Left Sidebar
+        self.grid_columnconfigure(1, weight=1)  # Main Workspace (Browser View)
+        self.grid_rowconfigure(0, weight=0)     # Header Bar
+        self.grid_rowconfigure(1, weight=1)     # Content Area
 
-        # Build UI
+        # Build UI Components
+        self._build_header_bar()
         self._build_sidebar()
         self._build_main_panel()
 
-        # Start background polling loops
+        # Start Polling Loops
         self._start_live_log_polling()
         self._start_browser_docking_loop()
 
-        # Protocol for graceful window closing
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-    def _build_sidebar(self):
-        self.sidebar = ctk.CTkFrame(self, width=420, corner_radius=0)
-        self.sidebar.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
-        self.sidebar.grid_rowconfigure(5, weight=1)  # Scrollable job list expands
+    def _build_header_bar(self):
+        self.header_bar = ctk.CTkFrame(self, fg_color=COLOR_PANEL, height=64, corner_radius=0, border_width=1, border_color=COLOR_BORDER)
+        self.header_bar.grid(row=0, column=0, columnspan=2, sticky="ew")
+        self.header_bar.grid_columnconfigure(1, weight=1)
 
-        # App Header
-        header_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        header_frame.grid(row=0, column=0, padx=15, pady=(15, 5), sticky="ew")
+        # Branding Logo & Name
+        logo_frame = ctk.CTkFrame(self.header_bar, fg_color="transparent")
+        logo_frame.pack(side="left", padx=20, pady=10)
 
-        title_label = ctk.CTkLabel(header_frame, text="Auto Job Applier", font=ctk.CTkFont(size=20, weight="bold"))
-        title_label.pack(side="left", padx=2)
-
-        self.status_badge = ctk.CTkLabel(header_frame, text="IDLE", font=ctk.CTkFont(size=11, weight="bold"),
-                                         fg_color="#3A3D40", text_color="#AAAAAA", corner_radius=6, padx=8, pady=2)
-        self.status_badge.pack(side="right", padx=2)
-
-        self.settings_btn = ctk.CTkButton(
-            header_frame, text="⚙️ Settings", font=ctk.CTkFont(size=12, weight="bold"),
-            width=85, height=28, fg_color="#21262D", hover_color="#30363D", command=self.open_settings_window
+        badge_icon = ctk.CTkLabel(
+            logo_frame, text="⚡", font=ctk.CTkFont(size=20),
+            fg_color=COLOR_PRIMARY, text_color="#FFFFFF", corner_radius=8, width=34, height=34
         )
-        self.settings_btn.pack(side="right", padx=5)
+        badge_icon.pack(side="left", padx=(0, 10))
 
-        # Divider
-        divider1 = ctk.CTkFrame(self.sidebar, height=2, fg_color="#2A2D32")
-        divider1.grid(row=1, column=0, padx=15, pady=5, sticky="ew")
+        title_text = ctk.CTkLabel(
+            logo_frame, text="Auto Job Applier Pro", 
+            font=ctk.CTkFont(size=18, weight="bold"), text_color=COLOR_TEXT_MAIN
+        )
+        title_text.pack(side="left")
 
-        # Script Version Selector Section
-        mode_frame = ctk.CTkFrame(self.sidebar, fg_color="#1E2023", corner_radius=8)
-        mode_frame.grid(row=2, column=0, padx=15, pady=8, sticky="ew")
+        # KPI Metrics Cards (Right Side of Header)
+        kpi_frame = ctk.CTkFrame(self.header_bar, fg_color="transparent")
+        kpi_frame.pack(side="right", padx=20, pady=10)
 
-        mode_title = ctk.CTkLabel(mode_frame, text="Select Script Mode:", font=ctk.CTkFont(size=13, weight="bold"))
-        mode_title.pack(anchor="w", padx=12, pady=(10, 5))
+        # Metric 1: Applied Jobs Counter
+        self.kpi_jobs_card = ctk.CTkFrame(kpi_frame, fg_color=COLOR_CARD, corner_radius=8, border_width=1, border_color=COLOR_BORDER)
+        self.kpi_jobs_card.pack(side="left", padx=6)
+
+        self.kpi_jobs_lbl = ctk.CTkLabel(
+            self.kpi_jobs_card, text="Applied: 0 Jobs", 
+            font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_SUCCESS, padx=12, pady=6
+        )
+        self.kpi_jobs_lbl.pack()
+
+        # Metric 2: Active Mode Pill
+        self.kpi_mode_card = ctk.CTkFrame(kpi_frame, fg_color=COLOR_CARD, corner_radius=8, border_width=1, border_color=COLOR_BORDER)
+        self.kpi_mode_card.pack(side="left", padx=6)
+
+        self.kpi_mode_lbl = ctk.CTkLabel(
+            self.kpi_mode_card, text="Mode: Interactive", 
+            font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_CYAN, padx=12, pady=6
+        )
+        self.kpi_mode_lbl.pack()
+
+        # Metric 3: Live Status Badge
+        self.status_badge = ctk.CTkLabel(
+            kpi_frame, text="● IDLE", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#334155", text_color="#CBD5E1", corner_radius=8, padx=14, pady=6
+        )
+        self.status_badge.pack(side="left", padx=6)
+
+        # Settings Trigger Button
+        self.settings_btn = ctk.CTkButton(
+            kpi_frame, text="⚙️ Settings", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=COLOR_CARD, hover_color=COLOR_CARD_HOVER, border_width=1, border_color=COLOR_BORDER,
+            width=90, height=32, corner_radius=8, command=self.open_settings_window
+        )
+        self.settings_btn.pack(side="left", padx=(10, 0))
+
+    def _build_sidebar(self):
+        self.sidebar = ctk.CTkFrame(self, width=440, fg_color=COLOR_PANEL, corner_radius=0)
+        self.sidebar.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
+        self.sidebar.grid_rowconfigure(3, weight=1)  # Applied jobs feed expands
+
+        # Section 1: Mode Selector Frame
+        mode_card = ctk.CTkFrame(self.sidebar, fg_color=COLOR_CARD, corner_radius=10, border_width=1, border_color=COLOR_BORDER)
+        mode_card.grid(row=0, column=0, padx=16, pady=(16, 10), sticky="ew")
+
+        mode_header = ctk.CTkLabel(
+            mode_card, text="EXECUTION MODE", 
+            font=ctk.CTkFont(size=11, weight="bold"), text_color=COLOR_TEXT_MUTED
+        )
+        mode_header.pack(anchor="w", padx=14, pady=(12, 6))
 
         self.mode_var = ctk.StringVar(value="interactive")
 
         self.radio_interactive = ctk.CTkRadioButton(
-            mode_frame, text="🔵 Interactive Mode (Standard / Default)", 
-            variable=self.mode_var, value="interactive", font=ctk.CTkFont(size=12)
+            mode_card, text="🔵 Interactive Mode (Standard / Default)", 
+            variable=self.mode_var, value="interactive", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=COLOR_PRIMARY, command=self._on_mode_change
         )
-        self.radio_interactive.pack(anchor="w", padx=15, pady=5)
+        self.radio_interactive.pack(anchor="w", padx=14, pady=6)
 
         self.radio_auto = ctk.CTkRadioButton(
-            mode_frame, text="⚡ Auto Mode (No prompt, delays <30s)", 
-            variable=self.mode_var, value="auto", font=ctk.CTkFont(size=12)
+            mode_card, text="⚡ Auto Mode (No prompts, delays <30s)", 
+            variable=self.mode_var, value="auto", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=COLOR_CYAN, command=self._on_mode_change
         )
-        self.radio_auto.pack(anchor="w", padx=15, pady=(5, 10))
+        self.radio_auto.pack(anchor="w", padx=14, pady=(6, 12))
 
-        # Control Buttons (Start / Terminate)
-        controls_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        controls_frame.grid(row=3, column=0, padx=15, pady=8, sticky="ew")
+        # Section 2: Controls Panel (Start / Terminate)
+        ctrl_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        ctrl_frame.grid(row=1, column=0, padx=16, pady=6, sticky="ew")
 
         self.start_btn = ctk.CTkButton(
-            controls_frame, text="▶  Start Script", font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color="#2EA043", hover_color="#268637", height=38, command=self.start_script
+            ctrl_frame, text="▶  Start Automation", font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color=COLOR_SUCCESS, hover_color="#059669", height=42, corner_radius=10, command=self.start_script
         )
-        self.start_btn.pack(side="left", expand=True, fill="x", padx=(0, 5))
+        self.start_btn.pack(side="left", expand=True, fill="x", padx=(0, 6))
 
         self.terminate_btn = ctk.CTkButton(
-            controls_frame, text="🛑  Terminate Script", font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color="#DA3633", hover_color="#B82C29", height=38, command=self.terminate_script, state="disabled"
+            ctrl_frame, text="🛑  Terminate", font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color="#EF4444", text_color="#FFFFFF", hover_color="#DC2626",
+            text_color_disabled="#E2E8F0",
+            height=42, corner_radius=10, command=self.terminate_script, state="disabled"
         )
-        self.terminate_btn.pack(side="right", expand=True, fill="x", padx=(5, 0))
+        self.terminate_btn.pack(side="right", expand=True, fill="x", padx=(6, 0))
 
-        # Applied Jobs Log Header
-        jobs_header_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        jobs_header_frame.grid(row=4, column=0, padx=15, pady=(15, 5), sticky="ew")
+        # Section 3: Live Applied Jobs Header
+        feed_hdr_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        feed_hdr_frame.grid(row=2, column=0, padx=16, pady=(16, 6), sticky="ew")
 
-        jobs_title = ctk.CTkLabel(jobs_header_frame, text="Successfully Applied Jobs", font=ctk.CTkFont(size=14, weight="bold"))
-        jobs_title.pack(side="left")
+        feed_title = ctk.CTkLabel(
+            feed_hdr_frame, text="APPLIED JOBS FEED", 
+            font=ctk.CTkFont(size=11, weight="bold"), text_color=COLOR_TEXT_MUTED
+        )
+        feed_title.pack(side="left")
 
-        self.job_count_label = ctk.CTkLabel(jobs_header_frame, text="0 Jobs", font=ctk.CTkFont(size=12), text_color="#8B949E")
-        self.job_count_label.pack(side="right")
+        # Section 4: Scrollable Applied Jobs Feed List
+        self.jobs_feed = ctk.CTkScrollableFrame(self.sidebar, fg_color=COLOR_BG, corner_radius=10, border_width=1, border_color=COLOR_BORDER)
+        self.jobs_feed.grid(row=3, column=0, padx=16, pady=6, sticky="nsew")
 
-        # Scrollable Applied Jobs Feed
-        self.jobs_feed = ctk.CTkScrollableFrame(self.sidebar, fg_color="#161B22", corner_radius=8)
-        self.jobs_feed.grid(row=5, column=0, padx=15, pady=(5, 10), sticky="nsew")
-
-        # Initial placeholder label
         self.empty_label = ctk.CTkLabel(
-            self.jobs_feed, text="No applied jobs logged yet.\nClick 'Start Script' to begin.", 
-            text_color="#8B949E", font=ctk.CTkFont(size=12)
+            self.jobs_feed, text="No job applications logged yet.\nClick 'Start Automation' to begin.", 
+            text_color=COLOR_TEXT_MUTED, font=ctk.CTkFont(size=12)
         )
-        self.empty_label.pack(pady=40)
+        self.empty_label.pack(pady=50)
 
-        # Terminal Log View Toggle
-        self.console_box = ctk.CTkTextbox(self.sidebar, height=120, font=ctk.CTkFont(family="Consolas", size=10), fg_color="#0D1117")
-        self.console_box.grid(row=6, column=0, padx=15, pady=(0, 15), sticky="ew")
-        self.console_box.insert("1.0", "System initialized. Ready to run.\n")
+        # Section 5: Developer Console Output Textbox
+        self.console_box = ctk.CTkTextbox(
+            self.sidebar, height=130, font=ctk.CTkFont(family="Consolas", size=10),
+            fg_color=COLOR_BG, border_width=1, border_color=COLOR_BORDER, corner_radius=8
+        )
+        self.console_box.grid(row=4, column=0, padx=16, pady=(6, 16), sticky="ew")
+        self.console_box.insert("1.0", "[SYSTEM] Pro Dashboard initialized. Ready to launch.\n")
         self.console_box.configure(state="disabled")
 
     def _build_main_panel(self):
-        self.main_panel = ctk.CTkFrame(self, fg_color="#0D1117", corner_radius=0)
-        self.main_panel.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
+        self.main_panel = ctk.CTkFrame(self, fg_color=COLOR_BG, corner_radius=0)
+        self.main_panel.grid(row=1, column=1, sticky="nsew", padx=0, pady=0)
         self.main_panel.grid_rowconfigure(0, weight=1)
         self.main_panel.grid_columnconfigure(0, weight=1)
 
         # Embedded Browser Dock Container Frame
-        self.browser_frame = ctk.CTkFrame(self.main_panel, fg_color="#161B22", corner_radius=8)
-        self.browser_frame.grid(row=0, column=0, padx=15, pady=15, sticky="nsew")
+        self.browser_frame = ctk.CTkFrame(self.main_panel, fg_color=COLOR_PANEL, corner_radius=12, border_width=1, border_color=COLOR_BORDER)
+        self.browser_frame.grid(row=0, column=0, padx=16, pady=16, sticky="nsew")
 
         # Placeholder inside browser container
         self.browser_placeholder = ctk.CTkLabel(
             self.browser_frame, 
-            text="🖥️ Chrome Browser View\n\nWhen the script launches, Chrome will be docked & controlled here.\n"
-                 "If browser embedding is restricted by Windows, Chrome runs alongside this panel.",
-            font=ctk.CTkFont(size=14), text_color="#8B949E"
+            text="🖥️  Chrome Browser Container\n\n"
+                 "When automation starts, Chrome will automatically open and dock into this viewport.\n"
+                 "If window reparenting is restricted by OS, Chrome runs side-by-side cleanly.",
+            font=ctk.CTkFont(size=14), text_color=COLOR_TEXT_MUTED
         )
         self.browser_placeholder.place(relx=0.5, rely=0.5, anchor="center")
 
+    def _on_mode_change(self):
+        mode = self.mode_var.get()
+        if mode == "auto":
+            self.kpi_mode_lbl.configure(text="Mode: Auto Mode ⚡", text_color=COLOR_CYAN)
+        else:
+            self.kpi_mode_lbl.configure(text="Mode: Interactive 🔵", text_color=COLOR_PRIMARY)
+
     def open_settings_window(self):
-        SettingsWindow(self)
+        ModernSettingsWindow(self)
 
     def log_console(self, text):
         self.console_box.configure(state="normal")
@@ -379,15 +484,15 @@ class AutoJobApplierApp(ctk.CTk):
 
         mode = self.mode_var.get()
         script_args = ["--auto"] if mode == "auto" else []
-        mode_desc = "Auto Mode (No confirmation, random delays <30s)" if mode == "auto" else "Interactive Mode (Standard)"
+        mode_desc = "Auto Mode (Delays <30s)" if mode == "auto" else "Interactive Mode (Default)"
 
-        self.log_console(f"Starting script in {mode_desc}...")
+        self.log_console(f"Launching bot in {mode_desc}...")
 
         # Update UI state
         self.is_running = True
         self.start_btn.configure(state="disabled")
         self.terminate_btn.configure(state="normal")
-        self.status_badge.configure(text="RUNNING", fg_color="#2EA043", text_color="#FFFFFF")
+        self.status_badge.configure(text="● RUNNING", fg_color=COLOR_SUCCESS, text_color="#FFFFFF")
 
         # Determine python executable & path
         workspace_dir = os.path.dirname(os.path.abspath(__file__))
@@ -396,7 +501,6 @@ class AutoJobApplierApp(ctk.CTk):
             venv_python = sys.executable
 
         run_script = os.path.join(workspace_dir, "run.py")
-
         cmd = [venv_python, run_script] + script_args
 
         # Launch process in background thread
@@ -426,7 +530,7 @@ class AutoJobApplierApp(ctk.CTk):
         if not self.is_running or not self.bot_process:
             return
 
-        self.log_console("Terminating script process...")
+        self.log_console("Terminating process...")
         try:
             if sys.platform.startswith('win'):
                 subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.bot_process.pid)])
@@ -444,11 +548,11 @@ class AutoJobApplierApp(ctk.CTk):
         self.terminate_btn.configure(state="disabled")
 
         if terminated:
-            self.status_badge.configure(text="TERMINATED", fg_color="#DA3633", text_color="#FFFFFF")
-            self.log_console("Script terminated by user.")
+            self.status_badge.configure(text="● TERMINATED", fg_color=COLOR_DANGER, text_color="#FFFFFF")
+            self.log_console("Process terminated by user.")
         else:
-            self.status_badge.configure(text="FINISHED", fg_color="#388BFD", text_color="#FFFFFF")
-            self.log_console("Script finished execution.")
+            self.status_badge.configure(text="● FINISHED", fg_color=COLOR_PRIMARY, text_color="#FFFFFF")
+            self.log_console("Automation completed successfully.")
 
     def _start_live_log_polling(self):
         def poll():
@@ -464,8 +568,7 @@ class AutoJobApplierApp(ctk.CTk):
                                 'Title': row.get('Title', 'Unknown Title'),
                                 'Company': row.get('Company', 'Unknown Company'),
                                 'Date_Applied': row.get('Date Applied', 'Just now'),
-                                'Link': row.get('Job Link', ''),
-                                'External': row.get('External Job link', '')
+                                'Link': row.get('Job Link', '')
                             })
 
                     if len(jobs) != len(self.applied_jobs_data):
@@ -479,40 +582,47 @@ class AutoJobApplierApp(ctk.CTk):
         poll()
 
     def _render_jobs_feed(self):
-        # Clear existing feed widgets
         for widget in self.jobs_feed.winfo_children():
             widget.destroy()
 
         if not self.applied_jobs_data:
             self.empty_label = ctk.CTkLabel(
-                self.jobs_feed, text="No applied jobs logged yet.\nClick 'Start Script' to begin.", 
-                text_color="#8B949E", font=ctk.CTkFont(size=12)
+                self.jobs_feed, text="No job applications logged yet.\nClick 'Start Automation' to begin.", 
+                text_color=COLOR_TEXT_MUTED, font=ctk.CTkFont(size=12)
             )
-            self.empty_label.pack(pady=40)
-            self.job_count_label.configure(text="0 Jobs")
+            self.empty_label.pack(pady=50)
+            self.kpi_jobs_lbl.configure(text="Applied: 0 Jobs")
             return
 
-        self.job_count_label.configure(text=f"{len(self.applied_jobs_data)} Jobs")
+        self.kpi_jobs_lbl.configure(text=f"Applied: {len(self.applied_jobs_data)} Jobs")
 
-        # Render in reverse chronological order (newest first)
+        # Render cards in reverse chronological order
         for idx, job in enumerate(reversed(self.applied_jobs_data)):
-            card = ctk.CTkFrame(self.jobs_feed, fg_color="#1E2023", corner_radius=6)
-            card.pack(fill="x", padx=2, pady=4)
+            card = ctk.CTkFrame(self.jobs_feed, fg_color=COLOR_CARD, corner_radius=8, border_width=1, border_color=COLOR_BORDER)
+            card.pack(fill="x", padx=4, pady=5)
 
-            # Top row: Title & Number
+            # Header Row (Title & Index Badge)
             top_row = ctk.CTkFrame(card, fg_color="transparent")
-            top_row.pack(fill="x", padx=8, pady=(6, 2))
+            top_row.pack(fill="x", padx=10, pady=(8, 2))
 
-            title_lbl = ctk.CTkLabel(top_row, text=f"#{len(self.applied_jobs_data) - idx} {job['Title']}", 
-                                     font=ctk.CTkFont(size=12, weight="bold"), anchor="w")
+            idx_lbl = ctk.CTkLabel(
+                top_row, text=f"#{len(self.applied_jobs_data) - idx}", 
+                font=ctk.CTkFont(size=11, weight="bold"), fg_color=COLOR_PRIMARY, text_color="#FFFFFF", corner_radius=4, width=28
+            )
+            idx_lbl.pack(side="left", padx=(0, 8))
+
+            title_lbl = ctk.CTkLabel(
+                top_row, text=job['Title'], 
+                font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN, anchor="w"
+            )
             title_lbl.pack(side="left", fill="x", expand=True)
 
-            # Company & Date row
+            # Details Row (Company & Timestamp)
             details_lbl = ctk.CTkLabel(
-                card, text=f"🏢 {job['Company']}  |  📅 {job['Date_Applied']}", 
-                font=ctk.CTkFont(size=10), text_color="#8B949E", anchor="w"
+                card, text=f"🏢  {job['Company']}  |  📅  {job['Date_Applied']}", 
+                font=ctk.CTkFont(size=11), text_color=COLOR_TEXT_MUTED, anchor="w"
             )
-            details_lbl.pack(fill="x", padx=8, pady=(0, 6))
+            details_lbl.pack(fill="x", padx=10, pady=(0, 8))
 
     def _start_browser_docking_loop(self):
         if not HAS_WIN32:
@@ -521,7 +631,6 @@ class AutoJobApplierApp(ctk.CTk):
         def dock_check():
             if self.is_running:
                 try:
-                    # Find Chrome window belonging to Selenium/Undetected Chrome
                     def enum_windows_callback(hwnd, extra):
                         if win32gui.IsWindowVisible(hwnd):
                             title = win32gui.GetWindowText(hwnd)
@@ -532,15 +641,12 @@ class AutoJobApplierApp(ctk.CTk):
                     chrome_windows = []
                     win32gui.EnumWindows(enum_windows_callback, chrome_windows)
 
-                    # If found and frame handle exists, set parent to embed
                     if chrome_windows and hasattr(self, 'browser_frame'):
                         container_hwnd = self.browser_frame.winfo_id()
                         for hwnd, title in chrome_windows:
                             parent = win32gui.GetParent(hwnd)
                             if parent != container_hwnd and "Applier" not in title:
-                                # Dock window
                                 win32gui.SetParent(hwnd, container_hwnd)
-                                # Resize chrome to fill frame
                                 width = self.browser_frame.winfo_width()
                                 height = self.browser_frame.winfo_height()
                                 if width > 50 and height > 50:
@@ -557,6 +663,7 @@ class AutoJobApplierApp(ctk.CTk):
         if self.is_running:
             self.terminate_script()
         self.destroy()
+
 
 if __name__ == "__main__":
     app = AutoJobApplierApp()

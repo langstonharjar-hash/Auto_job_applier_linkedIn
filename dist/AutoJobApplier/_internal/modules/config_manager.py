@@ -20,10 +20,9 @@ def _update_var_in_file(file_path: str, var_name: str, new_value_repr: str) -> b
 
         # Match variable assignment at the start of a line (allowing whitespace)
         pattern = rf"^(\s*{re.escape(var_name)}\s*=\s*)(.*?)(?=#.*|\n|$)"
-        replacement = f"\\1{new_value_repr}"
 
         if re.search(pattern, content, flags=re.MULTILINE):
-            new_content = re.sub(pattern, replacement, content, flags=re.MULTILINE, count=1)
+            new_content = re.sub(pattern, lambda m: f"{m.group(1)}{new_value_repr}", content, flags=re.MULTILINE, count=1)
         else:
             # Append if not found
             new_content = content + f"\n{var_name} = {new_value_repr}\n"
