@@ -108,9 +108,10 @@ def is_logged_in_LN() -> bool:
     Function to check if user is logged-in in LinkedIn
     * Returns: `True` if user is logged-in or `False` if not
     '''
-    if driver.current_url == "https://www.linkedin.com/feed/": return True
+    if "feed" in driver.current_url: return True
+    if "jobs" in driver.current_url: return True
     if try_linkText(driver, "Sign in"): return False
-    if try_xp(driver, '//button[@type="submit" and contains(text(), "Sign in")]'):  return False
+    if try_xp(driver, '//button[@type="submit" and contains(translate(., "SIGN", "sign"), "sign")]'): return False
     if try_linkText(driver, "Join now"): return False
     print_lg("Didn't find Sign in link, so assuming user is logged in!")
     return True
@@ -123,42 +124,139 @@ def login_LN() -> None:
     * If failed, tries to login using saved LinkedIn profile button if available
     * If both failed, asks user to login manually
     '''
-    # Find the username and password fields and fill them with user credentials
+    print_lg("Navigating to LinkedIn login page...")
     driver.get("https://www.linkedin.com/login")
+    time.sleep(2)
+    
+    if is_logged_in_LN():
+        return print_lg("Already logged in!")
+
     if username == "username@example.com" and password == "example_password":
-        pyautogui.alert("User did not configure username and password in secrets.py, hence can't login automatically! Please login manually!", "Login Manually","Okay")
         print_lg("User did not configure username and password in secrets.py, hence can't login automatically! Please login manually!")
         manual_login_retry(is_logged_in_LN, 2)
         return
+
+    login_attempted = False
     try:
-        wait.until(EC.presence_of_element_located((By.LINK_TEXT, "Forgot password?")))
-        try:
-            text_input_by_ID(driver, "username", username, 1)
-        except Exception as e:
-            print_lg("Couldn't find username field.")
-            # print_lg(e)
-        try:
-            text_input_by_ID(driver, "password", password, 1)
-        except Exception as e:
-            print_lg("Couldn't find password field.")
-            # print_lg(e)
-        # Find the login submit button and click it
-        driver.find_element(By.XPATH, '//button[@type="submit" and contains(text(), "Sign in")]').click()
+        # Step 1: Look for username field
+        user_elem = None
+        username_selectors = [
+            (By.ID, "username"),
+            (By.ID, "session_key"),
+            (By.NAME, "session_key"),
+            (By.XPATH, "//input[@id='username' or @id='session_key' or @name='session_key']"),
+            (By.XPATH, "//input[@type='text' or @type='email' or @autocomplete='username']")
+        ]
+        
+        for by, sel in username_selectors:
+            try:
+                elems = driver.find_elements(by, sel)
+                for el in elems:
+                    if el.is_displayed() and el.is_enabled():
+                        user_elem = el
+                        break
+                if user_elem: break
+            except: continue
+
+        if user_elem:
+            print_lg("Found username input field, filling username...")
+            try:
+                driver.execute_script("arguments[0].focus(); arguments[0].value = '';", user_elem)
+                user_elem.click()
+                user_elem.clear()
+            except: pass
+            
+            try:
+                for char in username:
+                    user_elem.send_keys(char)
+                    time.sleep(0.01)
+            except:
+                driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true })); arguments[0].dispatchEvent(new Event('change', { bubbles: true }));", user_elem, username)
+            time.sleep(0.5)
+        else:
+            print_lg("Notice: Username field not visible or already filled.")
+
+        # Step 2: Look for password field
+        pass_elem = None
+        password_selectors = [
+            (By.ID, "password"),
+            (By.ID, "session_password"),
+            (By.NAME, "session_password"),
+            (By.XPATH, "//input[@id='password' or @id='session_password' or @name='session_password']"),
+            (By.XPATH, "//input[@type='password' or @autocomplete='current-password']")
+        ]
+        
+        for by, sel in password_selectors:
+            try:
+                elems = driver.find_elements(by, sel)
+                for el in elems:
+                    if el.is_displayed() and el.is_enabled():
+                        pass_elem = el
+                        break
+                if pass_elem: break
+            except: continue
+
+        if pass_elem:
+            print_lg("Found password input field, filling password...")
+            try:
+                driver.execute_script("arguments[0].focus(); arguments[0].value = '';", pass_elem)
+                pass_elem.click()
+                pass_elem.clear()
+            except: pass
+
+            try:
+                for char in password:
+                    pass_elem.send_keys(char)
+                    time.sleep(0.01)
+            except:
+                driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true })); arguments[0].dispatchEvent(new Event('change', { bubbles: true }));", pass_elem, password)
+            time.sleep(0.5)
+
+        # Step 3: Profile card check if no text fields were visible
+        if not user_elem and not pass_elem:
+            for prof_sel in [(By.CLASS_NAME, "profile__details"), (By.XPATH, "//button[contains(@class, 'profile')]"), (By.XPATH, "//div[contains(@class, 'remembered-account')]")]:
+                try:
+                    p_btn = driver.find_element(*prof_sel)
+                    if p_btn.is_displayed():
+                        print_lg("Clicking saved profile card...")
+                        driver.execute_script("arguments[0].click();", p_btn)
+                        login_attempted = True
+                        time.sleep(2)
+                        break
+                except: continue
+
+        # Step 4: Submit login form
+        if user_elem or pass_elem:
+            print_lg("Submitting login form...")
+            btn_clicked = False
+            for by, sel in [
+                (By.XPATH, '//button[@type="submit"]'),
+                (By.XPATH, '//button[contains(translate(., "SIGN", "sign"), "sign")]'),
+                (By.XPATH, '//form//button')
+            ]:
+                try:
+                    btn = driver.find_element(by, sel)
+                    if btn.is_displayed():
+                        driver.execute_script("arguments[0].click();", btn)
+                        btn_clicked = True
+                        login_attempted = True
+                        break
+                except: continue
+
+            if not btn_clicked and pass_elem:
+                from selenium.webdriver.common.keys import Keys
+                pass_elem.send_keys(Keys.ENTER)
+                login_attempted = True
+
     except Exception as e1:
-        try:
-            profile_button = find_by_class(driver, "profile__details")
-            profile_button.click()
-        except Exception as e2:
-            # print_lg(e1, e2)
-            print_lg("Couldn't Login!")
+        print_lg("Exception while typing credentials: " + str(e1))
 
     try:
-        # Wait until successful redirect, indicating successful login
-        wait.until(EC.url_to_be("https://www.linkedin.com/feed/")) # wait.until(EC.presence_of_element_located((By.XPATH, '//button[normalize-space(.)="Start a post"]')))
+        print_lg("Waiting for login redirect...")
+        WebDriverWait(driver, 15).until(lambda d: "feed" in d.current_url or is_logged_in_LN())
         return print_lg("Login successful!")
     except Exception as e:
-        print_lg("Seems like login attempt failed! Possibly due to wrong credentials or already logged in! Try logging in manually!")
-        # print_lg(e)
+        print_lg("Seems like login attempt failed! Possibly due to wrong credentials, 2FA/CAPTCHA, or already logged in! Try logging in manually!")
         manual_login_retry(is_logged_in_LN, 2)
 #>
 
@@ -188,7 +286,18 @@ def set_search_location() -> None:
     if search_location.strip():
         try:
             print_lg(f'Setting search location as: "{search_location.strip()}"')
-            search_location_ele = try_xp(driver, ".//input[@aria-label='City, state, or zip code'and not(@disabled)]", False) #  and not(@aria-hidden='true')]")
+            search_location_ele = None
+            for loc_xpath in [
+                ".//input[@aria-label='City, state, or zip code' and not(@disabled)]",
+                "//input[contains(translate(@aria-label, 'LOCATION', 'location'), 'location')]",
+                "//input[contains(translate(@aria-label, 'CITY', 'city'), 'city')]",
+                "//input[contains(@id, 'location')]",
+                "//input[contains(@id, 'jobs-search-box-location')]"
+            ]:
+                try:
+                    search_location_ele = WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.XPATH, loc_xpath)))
+                    if search_location_ele and search_location_ele.is_displayed(): break
+                except: continue
             text_input(actions, search_location_ele, search_location, "Search Location")
         except ElementNotInteractableException:
             try_xp(driver, ".//label[@class='jobs-search-box__input-icon jobs-search-box__keywords-label']")
@@ -212,8 +321,25 @@ def apply_filters() -> None:
     try:
         recommended_wait = 1 if click_gap < 1 else 0
 
-        wait.until(EC.presence_of_element_located((By.XPATH, '//button[normalize-space()="All filters"]'))).click()
-        buffer(recommended_wait)
+        all_filters_btn = None
+        for xpath in [
+            '//button[contains(translate(., "ALL FILTERS", "all filters"), "all filters")]',
+            '//button[contains(translate(@aria-label, "ALL FILTERS", "all filters"), "all filters")]',
+            '//button[contains(@class, "search-reusables__all-filters-button")]',
+            '//button[contains(@class, "search-reusables__filter-pill-button")][contains(., "Filter")]',
+            '//button[normalize-space()="All filters"]'
+        ]:
+            try:
+                all_filters_btn = WebDriverWait(driver, 3).until(EC.element_to_be_clickable((By.XPATH, xpath)))
+                if all_filters_btn: break
+            except: continue
+
+        if all_filters_btn:
+            try: driver.execute_script("arguments[0].click();", all_filters_btn)
+            except: all_filters_btn.click()
+            buffer(recommended_wait)
+        else:
+            print_lg("Notice: All filters button not found on search page, proceeding with direct search.")
 
         wait_span_click(driver, sort_by)
         wait_span_click(driver, date_posted)
@@ -248,17 +374,36 @@ def apply_filters() -> None:
         multi_sel_noWait(driver, commitments)
         if benefits or commitments: buffer(recommended_wait)
 
-        show_results_button: WebElement = driver.find_element(By.XPATH, '//button[contains(translate(@aria-label, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "apply current filters to show")]')
-        show_results_button.click()
+        show_results_button = None
+        for xpath in [
+            '//button[contains(translate(@aria-label, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "apply current filters to show")]',
+            '//button[contains(translate(@aria-label, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "show")]',
+            '//button[contains(translate(@aria-label, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "results")]',
+            '//button[contains(translate(., "SHOW", "show"), "show")]',
+            '//button[contains(translate(., "RESULTS", "results"), "results")]',
+            '//footer//button[contains(@class, "primary")]',
+            '//div[contains(@class, "all-filters")]//button[@type="submit"]'
+        ]:
+            try:
+                elem = driver.find_element(By.XPATH, xpath)
+                if elem.is_displayed():
+                    show_results_button = elem
+                    break
+            except: continue
+
+        if show_results_button:
+            driver.execute_script("arguments[0].click();", show_results_button)
+        else:
+            print_lg("Notice: Could not locate show results button in filters modal, continuing...")
 
         global pause_after_filters
-        if pause_after_filters and "Turn off Pause after search" == pyautogui.confirm("These are your configured search results and filter. It is safe to change them while this dialog is open, any changes later could result in errors and skipping this search run.", "Please check your results", ["Turn off Pause after search", "Look's good, Continue"]):
-            pause_after_filters = False
+        if pause_after_filters:
+            ans = pyautogui.confirm("These are your configured search results and filter. It is safe to change them while this dialog is open.", "Please check your results", buttons=["Turn off Pause after search", "Look's good, Continue"])
+            if ans == "Turn off Pause after search":
+                pause_after_filters = False
 
     except Exception as e:
-        print_lg("Setting the preferences failed!")
-        pyautogui.confirm(f"Faced error while applying filters. Please make sure correct filters are selected, click on show results and click on any button of this dialog, I know it sucks. Can't turn off Pause after search when error occurs! ERROR: {e}", ["Doesn't look good, but Continue XD", "Look's good, Continue"])
-        # print_lg(e)
+        print_lg("Setting the preferences failed:", e)
 
 
 
@@ -432,7 +577,11 @@ def upload_resume(modal: WebElement, resume: str) -> tuple[bool, str]:
 
 # Function to answer common questions for Easy Apply
 def answer_common_questions(label: str, answer: str) -> str:
-    if 'sponsorship' in label or 'visa' in label: answer = require_visa
+    if 'sponsorship' in label or 'visa' in label:
+        if any(neg in label for neg in ['without', 'no sponsorship', 'not require', "don't require", "dont require", 'authorized to work']):
+            answer = 'Yes' if require_visa.lower() == 'no' else 'No'
+        else:
+            answer = require_visa
     return answer
 
 
@@ -873,9 +1022,51 @@ def apply_to_jobs(search_terms: list[str]) -> None:
 
     if randomize_search_order:  shuffle(search_terms)
     for searchTerm in search_terms:
-        driver.get(f"https://www.linkedin.com/jobs/search/?keywords={searchTerm}")
+        search_url = f"https://www.linkedin.com/jobs/search/?keywords={searchTerm}"
         print_lg("\n________________________________________________________________________________________________________________________\n")
         print_lg(f'\n>>>> Now searching for "{searchTerm}" <<<<\n\n')
+
+        driver.get(search_url)
+        time.sleep(3)
+
+        # Handle redirect or failure to navigate from feed to job search
+        if "feed" in driver.current_url or "jobs" not in driver.current_url:
+            print_lg("Redirected or stayed on feed after search navigation! Navigating via Jobs hub fallback...")
+            try:
+                driver.get("https://www.linkedin.com/jobs/")
+                WebDriverWait(driver, 10).until(lambda d: "jobs" in d.current_url and "feed" not in d.current_url)
+                time.sleep(2)
+            except Exception:
+                print_lg("Direct navigation to /jobs/ timed out, trying navigation bar click...")
+                for jobs_nav_xpath in [
+                    "//a[contains(@href, '/jobs')]",
+                    "//span[text()='Jobs']/ancestor::a",
+                    "//li[contains(@class, 'global-nav__nav-item')]//a[contains(@href, 'jobs')]"
+                ]:
+                    try:
+                        nav_btn = driver.find_element(By.XPATH, jobs_nav_xpath)
+                        if nav_btn.is_displayed():
+                            driver.execute_script("arguments[0].click();", nav_btn)
+                            time.sleep(3)
+                            break
+                    except Exception: continue
+
+            print_lg(f'Re-navigating to search URL: "{search_url}"')
+            driver.get(search_url)
+            time.sleep(3)
+
+        # Wait for search page elements to finish rendering
+        try:
+            WebDriverWait(driver, 15).until(
+                lambda d: ("jobs" in d.current_url and "feed" not in d.current_url) and (
+                    len(d.find_elements(By.XPATH, "//input[contains(@aria-label, 'City') or contains(@aria-label, 'location') or contains(@id, 'location') or contains(@id, 'jobs-search')]")) > 0 or
+                    len(d.find_elements(By.XPATH, "//button[contains(translate(., 'ALL FILTERS', 'all filters'), 'all filters') or contains(@class, 'search-reusables')]")) > 0 or
+                    len(d.find_elements(By.XPATH, "//li[@data-occludable-job-id]")) > 0
+                )
+            )
+            print_lg("Successfully reached and loaded LinkedIn job search page!")
+        except Exception as e:
+            print_lg("Notice: Timeout waiting for job search page elements, proceeding with search...", e)
 
         apply_filters()
 
@@ -1172,17 +1363,19 @@ chatGPT_tab = False
 linkedIn_tab = False
 
 def main() -> None:
-    pyautogui.alert("Please consider sponsoring this project at:\n\nhttps://github.com/sponsors/GodsScion\n\n", "Support the project", "Okay")
     total_runs = 1
     try:
-        global linkedIn_tab, tabs_count, useNewResume, aiClient
+        global linkedIn_tab, tabs_count, useNewResume, aiClient, options, driver, actions, wait
         alert_title = "Error Occurred. Closing Browser!"
         validate_config()
         
         if not os.path.exists(default_resume_path):
-            pyautogui.alert(text='Your default resume "{}" is missing! Please update it\'s folder path "default_resume_path" in config.py\n\nOR\n\nAdd a resume with exact name and path (check for spelling mistakes including cases).\n\n\nFor now the bot will continue using your previous upload from LinkedIn!'.format(default_resume_path), title="Missing Resume", button="OK")
+            print_lg(f'Notice: Default resume "{default_resume_path}" was not found locally. Using previous upload from LinkedIn.')
             useNewResume = False
         
+        # Initialize Chrome Session
+        options, driver, actions, wait = init_chrome()
+
         # Login to LinkedIn
         tabs_count = len(driver.window_handles)
         driver.get("https://www.linkedin.com/login")
