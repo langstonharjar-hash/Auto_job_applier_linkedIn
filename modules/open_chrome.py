@@ -14,6 +14,7 @@ Support me: https://github.com/sponsors/GodsScion
 version:    26.01.20.5.08
 '''
 
+import sys
 from modules.helpers import get_default_temp_profile, make_directories
 from config.settings import run_in_background, stealth_mode, disable_extensions, safe_mode, chrome_profile, file_name, failed_file_name, logs_folder_path, generated_resume_path
 from config.questions import default_resume_path
@@ -48,7 +49,14 @@ def createChromeSession(isRetry: bool = False):
         print_lg("Downloading Chrome Driver... This may take some time. Undetected mode requires download every run!")
         driver = uc.Chrome(options=options)
     else: 
-        driver = webdriver.Chrome(options=options)
+        if sys.platform.startswith('win'):
+            import subprocess
+            from selenium.webdriver.chrome.service import Service
+            service = Service()
+            service.creation_flags = subprocess.CREATE_NO_WINDOW
+            driver = webdriver.Chrome(options=options, service=service)
+        else:
+            driver = webdriver.Chrome(options=options)
     driver.maximize_window()
     try:
         main_handle = driver.current_window_handle
@@ -86,6 +94,6 @@ def init_chrome(isRetry: bool = False):
         try:
             if driver: driver.quit()
         except NameError: pass
-        exit()
+        raise Exception(msg) from e
     return options, driver, actions, wait
     

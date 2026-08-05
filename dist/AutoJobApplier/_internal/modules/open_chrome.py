@@ -48,7 +48,14 @@ def createChromeSession(isRetry: bool = False):
         print_lg("Downloading Chrome Driver... This may take some time. Undetected mode requires download every run!")
         driver = uc.Chrome(options=options)
     else: 
-        driver = webdriver.Chrome(options=options)
+        if sys.platform.startswith('win'):
+            import subprocess
+            from selenium.webdriver.chrome.service import Service
+            service = Service()
+            service.creation_flags = subprocess.CREATE_NO_WINDOW
+            driver = webdriver.Chrome(options=options, service=service)
+        else:
+            driver = webdriver.Chrome(options=options)
     driver.maximize_window()
     try:
         main_handle = driver.current_window_handle

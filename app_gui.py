@@ -588,9 +588,11 @@ class AutoJobApplierApp(ctk.CTk):
         self.terminate_btn.configure(state="normal")
         self.status_badge.configure(text="● RUNNING", fg_color=COLOR_SUCCESS, text_color="#FFFFFF")
 
-        # Determine python executable & path
+        # Determine python executable & path (prefer windowless pythonw.exe)
         workspace_dir = os.path.dirname(os.path.abspath(__file__))
-        venv_python = os.path.join(workspace_dir, ".venv", "Scripts", "python.exe")
+        venv_python = os.path.join(workspace_dir, ".venv", "Scripts", "pythonw.exe")
+        if not os.path.exists(venv_python):
+            venv_python = os.path.join(workspace_dir, ".venv", "Scripts", "python.exe")
         if not os.path.exists(venv_python):
             venv_python = sys.executable
 
@@ -621,20 +623,40 @@ class AutoJobApplierApp(ctk.CTk):
             self.after(0, self._on_process_finished)
 
     def terminate_script(self):
-        if not self.is_running and not self.bot_process:
-            return
-
         self.log_console("Terminating all automation processes & browser drivers...")
+        no_window_flag = subprocess.CREATE_NO_WINDOW if sys.platform.startswith('win') else 0
         try:
-            if self.bot_process and self.bot_process.poll() is None:
-                if sys.platform.startswith('win'):
-                    subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.bot_process.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                else:
-                    self.bot_process.kill()
+            # 1. Kill bot process tree silently
+            if hasattr(self, 'bot_process') and self.bot_process:
+                try:
+                    if sys.platform.startswith('win'):
+                        subprocess.call(
+                            ['taskkill', '/F', '/T', '/PID', str(self.bot_process.pid)],
+                            creationflags=no_window_flag, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                        )
+                    else:
+                        self.bot_process.kill()
+                except Exception:
+                    pass
 
-            # Forcefully kill any lingering chromedriver processes on Windows
+            # 2. Kill docked Chrome window process tree silently
+            if HAS_WIN32 and getattr(self, 'docked_hwnd', None) and win32gui.IsWindow(self.docked_hwnd):
+                try:
+                    _, chrome_pid = win32process.GetWindowThreadProcessId(self.docked_hwnd)
+                    if chrome_pid:
+                        subprocess.call(
+                            ['taskkill', '/F', '/T', '/PID', str(chrome_pid)],
+                            creationflags=no_window_flag, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                        )
+                except Exception:
+                    pass
+
+            # 3. Kill all background chromedriver processes silently
             if sys.platform.startswith('win'):
-                subprocess.call(['taskkill', '/F', '/IM', 'chromedriver.exe'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.call(
+                    ['taskkill', '/F', '/IM', 'chromedriver.exe'],
+                    creationflags=no_window_flag, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
         except Exception as e:
             self.log_console(f"Error during termination: {e}")
 

@@ -181,7 +181,7 @@ def buffer(speed: int=0) -> None:
 def gui_alert(message: str, title: str = "Notification") -> None:
     """Shows in-app log notification without popups in auto mode, or a modal alert in interactive mode."""
     print_lg(f"[{title}] {message}")
-    if is_auto_mode:
+    if is_auto_mode_enabled:
         return
     try:
         import tkinter as tk
@@ -205,7 +205,7 @@ def gui_confirm(message: str, title: str = "Confirmation Required", buttons: lis
     if buttons is None:
         buttons = ["OK"]
 
-    if is_auto_mode:
+    if is_auto_mode_enabled:
         return buttons[0]
 
     print_lg(f"\n=======================================================")
