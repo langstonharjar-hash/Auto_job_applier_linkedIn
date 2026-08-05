@@ -178,13 +178,77 @@ def buffer(speed: int=0) -> None:
         return sleep(randint(18,round(speed)*10)*0.1)
     
 
+def gui_alert(message: str, title: str = "Notification") -> None:
+    """Shows in-app log notification without popups in auto mode, or a modal alert in interactive mode."""
+    print_lg(f"[{title}] {message}")
+    if is_auto_mode:
+        return
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        root.lift()
+        root.focus_force()
+        messagebox.showinfo(title, message, parent=root)
+        root.destroy()
+    except Exception:
+        pass
+
+
+def gui_confirm(message: str, title: str = "Confirmation Required", buttons: list = None) -> str:
+    """
+    Shows a topmost modal dialog in Interactive Mode.
+    Blocks execution strictly until user makes an explicit decision.
+    """
+    if buttons is None:
+        buttons = ["OK"]
+
+    if is_auto_mode:
+        return buttons[0]
+
+    print_lg(f"\n=======================================================")
+    print_lg(f"⏸️  [INTERACTIVE PAUSE REQUIRED] {title}")
+    print_lg(f"{message}")
+    print_lg(f"=======================================================\n")
+
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        root.lift()
+        root.focus_force()
+
+        if len(buttons) == 1:
+            messagebox.showinfo(title, message, parent=root)
+            root.destroy()
+            return buttons[0]
+        elif "Submit Application" in buttons or "Continue" in buttons:
+            res = messagebox.askyesno(title, f"{message}\n\nDo you want to proceed and SUBMIT this application?", parent=root)
+            root.destroy()
+            if res:
+                return "Submit Application" if "Submit Application" in buttons else buttons[-1]
+            else:
+                return "Discard Application" if "Discard Application" in buttons else buttons[0]
+        else:
+            res = messagebox.askyesno(title, message, parent=root)
+            root.destroy()
+            return buttons[-1] if res else buttons[0]
+    except Exception as e:
+        print_lg(f"Waiting 15 seconds for manual review in browser...")
+        sleep(15)
+        return buttons[-1]
+
+
 def manual_login_retry(is_logged_in: callable, limit: int = 2) -> None:
     '''
     Function to ask and validate manual login
     '''
     count = 0
     while not is_logged_in():
-        from pyautogui import alert
         print_lg("Seems like you're not logged in!")
         button = "Confirm Login"
         message = 'After you successfully Log In, please click "{}" button below.'.format(button)
@@ -192,7 +256,8 @@ def manual_login_retry(is_logged_in: callable, limit: int = 2) -> None:
             button = "Skip Confirmation"
             message = 'If you\'re seeing this message even after you logged in, Click "{}". Seems like auto login confirmation failed!'.format(button)
         count += 1
-        if alert(message, "Login Required", button) and count > limit: return
+        gui_alert(message, "Login Required")
+        if count > limit: return
 
 
 

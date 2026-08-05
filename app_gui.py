@@ -125,6 +125,12 @@ class ModernSettingsWindow(ctk.CTkToplevel):
         self.date_posted_menu.pack(fill="x")
         self.date_posted_menu.set(self.current_settings.get("date_posted", "Past week"))
 
+        # Bad Words Filter Entry
+        ctk.CTkLabel(form, text="Skip Job Description Bad Words (comma separated):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=10, pady=(5, 2))
+        self.bad_words_entry = ctk.CTkEntry(form, placeholder_text="e.g. US Citizen, Security Clearance, No C2C", height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.bad_words_entry.pack(fill="x", padx=10, pady=(0, 12))
+        self.bad_words_entry.insert(0, ", ".join(self.current_settings.get("bad_words", [])))
+
         # Work Modes & Job Types Row
         filters_row = ctk.CTkFrame(form, fg_color=COLOR_CARD, corner_radius=8, border_width=1, border_color=COLOR_BORDER)
         filters_row.pack(fill="x", padx=10, pady=(0, 15))
@@ -160,15 +166,41 @@ class ModernSettingsWindow(ctk.CTkToplevel):
         ctk.CTkCheckBox(type_box, text="Contract", variable=self.type_contract_var, fg_color=COLOR_PRIMARY).pack(side="left", padx=(0, 20))
         ctk.CTkCheckBox(type_box, text="Part-time", variable=self.type_pt_var, fg_color=COLOR_PRIMARY).pack(side="left")
 
-        # --- SECTION 2: PERSONAL & SALARY ---
+        # --- SECTION 2: PERSONAL & VISA & SALARY ---
         ctk.CTkFrame(form, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=10, pady=10)
 
         sec2_lbl = ctk.CTkLabel(
-            form, text="👤  PERSONAL & SALARY TARGETS", 
+            form, text="👤  PERSONAL, VISA & SALARY TARGETS", 
             font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_SUCCESS
         )
         sec2_lbl.pack(anchor="w", padx=10, pady=(5, 10))
 
+        # Personal Row 1 (Years of Exp, Require Visa, Citizenship)
+        pers_row1 = ctk.CTkFrame(form, fg_color="transparent")
+        pers_row1.pack(fill="x", padx=10, pady=(0, 10))
+
+        pc1 = ctk.CTkFrame(pers_row1, fg_color="transparent")
+        pc1.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        ctk.CTkLabel(pc1, text="Years of Experience:", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
+        self.years_exp_entry = ctk.CTkEntry(pc1, height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.years_exp_entry.pack(fill="x")
+        self.years_exp_entry.insert(0, str(self.current_settings.get("years_of_experience", "7")))
+
+        pc2 = ctk.CTkFrame(pers_row1, fg_color="transparent")
+        pc2.pack(side="left", width=160, padx=(0, 10))
+        ctk.CTkLabel(pc2, text="Require Visa Sponsorship:", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
+        self.visa_menu = ctk.CTkOptionMenu(pc2, values=["No", "Yes"], height=38, fg_color=COLOR_CARD, button_color=COLOR_PRIMARY)
+        self.visa_menu.pack(fill="x")
+        self.visa_menu.set(str(self.current_settings.get("require_visa", "No")))
+
+        pc3 = ctk.CTkFrame(pers_row1, fg_color="transparent")
+        pc3.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(pc3, text="Citizenship Status:", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
+        self.citizenship_entry = ctk.CTkEntry(pc3, height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.citizenship_entry.pack(fill="x")
+        self.citizenship_entry.insert(0, str(self.current_settings.get("us_citizenship", "U.S. Citizen/Permanent Resident")))
+
+        # Salary & Notice Row 2
         sal_row = ctk.CTkFrame(form, fg_color="transparent")
         sal_row.pack(fill="x", padx=10, pady=(0, 15))
 
@@ -178,12 +210,12 @@ class ModernSettingsWindow(ctk.CTkToplevel):
         ctk.CTkLabel(c1, text="Target Desired Salary ($):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
         self.salary_entry = ctk.CTkEntry(c1, height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
         self.salary_entry.pack(fill="x")
-        self.salary_entry.insert(0, str(self.current_settings.get("desired_salary", 120000)))
+        self.salary_entry.insert(0, str(self.current_settings.get("desired_salary", 125000)))
 
         # Experience
         c2 = ctk.CTkFrame(sal_row, fg_color="transparent")
         c2.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        ctk.CTkLabel(c2, text="Experience (years):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
+        ctk.CTkLabel(c2, text="Max Level Exp (years):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", pady=(0, 2))
         self.exp_entry = ctk.CTkEntry(c2, height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
         self.exp_entry.pack(fill="x")
         self.exp_entry.insert(0, str(self.current_settings.get("current_experience", 7)))
@@ -196,11 +228,17 @@ class ModernSettingsWindow(ctk.CTkToplevel):
         self.notice_entry.pack(fill="x")
         self.notice_entry.insert(0, str(self.current_settings.get("notice_period", 14)))
 
+        # Resume Path Entry
+        ctk.CTkLabel(form, text="Default Resume Filename (in root folder):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=10, pady=(5, 2))
+        self.resume_entry = ctk.CTkEntry(form, placeholder_text="e.g. Resume.pdf", height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
+        self.resume_entry.pack(fill="x", padx=10, pady=(0, 15))
+        self.resume_entry.insert(0, str(self.current_settings.get("default_resume_path", "Langston_Harris_Jara_Resume.pdf")))
+
         # --- SECTION 3: BOT OPTIONS ---
         ctk.CTkFrame(form, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=10, pady=10)
 
         sec3_lbl = ctk.CTkLabel(
-            form, text="⚡  BOT CONTROLS & DELAYS", 
+            form, text="⚡  BOT CONTROLS & BROWSER", 
             font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_WARNING
         )
         sec3_lbl.pack(anchor="w", padx=10, pady=(5, 10))
@@ -221,6 +259,18 @@ class ModernSettingsWindow(ctk.CTkToplevel):
         self.profile_entry = ctk.CTkEntry(bc2, height=38, fg_color=COLOR_CARD, border_color=COLOR_BORDER)
         self.profile_entry.pack(fill="x")
         self.profile_entry.insert(0, str(self.current_settings.get("chrome_profile", "Default")))
+
+        # Options Checkboxes
+        opt_box = ctk.CTkFrame(form, fg_color=COLOR_CARD, corner_radius=8, border_width=1, border_color=COLOR_BORDER)
+        opt_box.pack(fill="x", padx=10, pady=(0, 15))
+        opt_inner = ctk.CTkFrame(opt_box, fg_color="transparent")
+        opt_inner.pack(fill="x", padx=12, pady=10)
+
+        self.close_tabs_var = ctk.BooleanVar(value=bool(self.current_settings.get("close_tabs", False)))
+        self.follow_comp_var = ctk.BooleanVar(value=bool(self.current_settings.get("follow_companies", False)))
+
+        ctk.CTkCheckBox(opt_inner, text="Close External Application Tabs", variable=self.close_tabs_var, fg_color=COLOR_PRIMARY).pack(side="left", padx=(0, 20))
+        ctk.CTkCheckBox(opt_inner, text="Follow Companies Automatically", variable=self.follow_comp_var, fg_color=COLOR_PRIMARY).pack(side="left")
 
         # Footer Action Buttons
         footer = ctk.CTkFrame(self, fg_color="transparent")
@@ -243,6 +293,9 @@ class ModernSettingsWindow(ctk.CTkToplevel):
             raw_terms = self.terms_entry.get().strip()
             terms_list = [t.strip() for t in raw_terms.split(",") if t.strip()]
 
+            raw_bad = self.bad_words_entry.get().strip()
+            bad_list = [b.strip() for b in raw_bad.split(",") if b.strip()]
+
             modes = []
             if self.mode_remote_var.get(): modes.append("Remote")
             if self.mode_hybrid_var.get(): modes.append("Hybrid")
@@ -259,11 +312,18 @@ class ModernSettingsWindow(ctk.CTkToplevel):
                 "date_posted": self.date_posted_menu.get(),
                 "on_site": modes,
                 "job_type": types,
-                "desired_salary": int(float(self.salary_entry.get() or 120000)),
+                "bad_words": bad_list,
+                "years_of_experience": self.years_exp_entry.get().strip() or "7",
+                "require_visa": self.visa_menu.get(),
+                "us_citizenship": self.citizenship_entry.get().strip(),
+                "desired_salary": int(float(self.salary_entry.get() or 125000)),
                 "current_experience": int(float(self.exp_entry.get() or 7)),
                 "notice_period": int(float(self.notice_entry.get() or 14)),
+                "default_resume_path": self.resume_entry.get().strip() or "Langston_Harris_Jara_Resume.pdf",
                 "click_gap": int(float(self.gap_entry.get() or 1)),
-                "chrome_profile": self.profile_entry.get().strip() or "Default"
+                "chrome_profile": self.profile_entry.get().strip() or "Default",
+                "close_tabs": self.close_tabs_var.get(),
+                "follow_companies": self.follow_comp_var.get()
             }
 
             if save_all_settings(new_data):
@@ -561,15 +621,20 @@ class AutoJobApplierApp(ctk.CTk):
             self.after(0, self._on_process_finished)
 
     def terminate_script(self):
-        if not self.is_running or not self.bot_process:
+        if not self.is_running and not self.bot_process:
             return
 
-        self.log_console("Terminating process...")
+        self.log_console("Terminating all automation processes & browser drivers...")
         try:
+            if self.bot_process and self.bot_process.poll() is None:
+                if sys.platform.startswith('win'):
+                    subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.bot_process.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    self.bot_process.kill()
+
+            # Forcefully kill any lingering chromedriver processes on Windows
             if sys.platform.startswith('win'):
-                subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.bot_process.pid)])
-            else:
-                self.bot_process.kill()
+                subprocess.call(['taskkill', '/F', '/IM', 'chromedriver.exe'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as e:
             self.log_console(f"Error during termination: {e}")
 
@@ -658,9 +723,21 @@ class AutoJobApplierApp(ctk.CTk):
             )
             details_lbl.pack(fill="x", padx=10, pady=(0, 8))
 
+    def _resize_docked_browser(self, event=None):
+        if HAS_WIN32 and getattr(self, 'docked_hwnd', None) and win32gui.IsWindow(self.docked_hwnd):
+            try:
+                width = max(50, self.browser_frame.winfo_width())
+                height = max(50, self.browser_frame.winfo_height())
+                win32gui.MoveWindow(self.docked_hwnd, 0, 0, width, height, True)
+            except Exception:
+                pass
+
     def _start_browser_docking_loop(self):
         if not HAS_WIN32:
             return
+
+        self.docked_hwnd = None
+        self.browser_frame.bind("<Configure>", self._resize_docked_browser)
 
         def dock_check():
             if self.is_running:
@@ -678,18 +755,19 @@ class AutoJobApplierApp(ctk.CTk):
                     if chrome_windows and hasattr(self, 'browser_frame'):
                         container_hwnd = self.browser_frame.winfo_id()
                         for hwnd, title in chrome_windows:
-                            parent = win32gui.GetParent(hwnd)
-                            if parent != container_hwnd and "Applier" not in title:
-                                win32gui.SetParent(hwnd, container_hwnd)
-                                width = self.browser_frame.winfo_width()
-                                height = self.browser_frame.winfo_height()
-                                if width > 50 and height > 50:
-                                    win32gui.MoveWindow(hwnd, 0, 0, width, height, True)
+                            if "Applier" not in title:
+                                parent = win32gui.GetParent(hwnd)
+                                if parent != container_hwnd:
+                                    win32gui.SetParent(hwnd, container_hwnd)
+                                self.docked_hwnd = hwnd
+                                self._resize_docked_browser()
                                 break
                 except Exception:
                     pass
+            else:
+                self.docked_hwnd = None
 
-            self.after(3000, dock_check)
+            self.after(1000, dock_check)
 
         dock_check()
 
