@@ -346,6 +346,7 @@ class AutoJobApplierApp(ctk.CTk):
 
         self.bot_process = None
         self.is_running = False
+        self.is_paused = False
         self.applied_jobs_data = []
 
         # Configure root layout grid
@@ -470,12 +471,12 @@ class AutoJobApplierApp(ctk.CTk):
 
         self.start_btn = ctk.CTkButton(
             ctrl_frame, text="▶  Start Automation", font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color=COLOR_SUCCESS, hover_color="#059669", height=42, corner_radius=10, command=self.start_script
+            fg_color=COLOR_SUCCESS, hover_color="#059669", height=42, corner_radius=10, command=self.toggle_start_pause
         )
         self.start_btn.pack(side="left", expand=True, fill="x", padx=(0, 6))
 
         self.terminate_btn = ctk.CTkButton(
-            ctrl_frame, text="🛑  Terminate", font=ctk.CTkFont(size=14, weight="bold"),
+            ctrl_frame, text="🛑  Stop Automation", font=ctk.CTkFont(size=14, weight="bold"),
             fg_color="#EF4444", text_color="#FFFFFF", hover_color="#DC2626",
             text_color_disabled="#E2E8F0",
             height=42, corner_radius=10, command=self.terminate_script, state="disabled"
@@ -572,6 +573,34 @@ class AutoJobApplierApp(ctk.CTk):
         self.console_box.see("end")
         self.console_box.configure(state="disabled")
 
+    def toggle_start_pause(self):
+        if not self.is_running:
+            self.start_script()
+        elif not self.is_paused:
+            self.pause_script()
+        else:
+            self.resume_script()
+
+    def pause_script(self):
+        self.is_paused = True
+        flag_path = os.path.join(os.path.dirname(__file__), "logs", "pause_bot.flag")
+        os.makedirs(os.path.dirname(flag_path), exist_ok=True)
+        with open(flag_path, "w") as f:
+            f.write("paused")
+        self.start_btn.configure(text="▶  Resume Automation", fg_color=COLOR_SUCCESS, hover_color="#059669")
+        self.status_badge.configure(text="● PAUSED", fg_color="#F59E0B", text_color="#FFFFFF")
+        self.log_console("Automation paused. Click 'Resume Automation' to continue.")
+
+    def resume_script(self):
+        self.is_paused = False
+        flag_path = os.path.join(os.path.dirname(__file__), "logs", "pause_bot.flag")
+        if os.path.exists(flag_path):
+            try: os.remove(flag_path)
+            except Exception: pass
+        self.start_btn.configure(text="⏸  Pause Automation", fg_color="#F59E0B", hover_color="#D97706")
+        self.status_badge.configure(text="● RUNNING", fg_color=COLOR_SUCCESS, text_color="#FFFFFF")
+        self.log_console("Resuming automation...")
+
     def start_script(self):
         if self.is_running:
             return
@@ -584,7 +613,13 @@ class AutoJobApplierApp(ctk.CTk):
 
         # Update UI state
         self.is_running = True
-        self.start_btn.configure(state="disabled")
+        self.is_paused = False
+        flag_path = os.path.join(os.path.dirname(__file__), "logs", "pause_bot.flag")
+        if os.path.exists(flag_path):
+            try: os.remove(flag_path)
+            except Exception: pass
+
+        self.start_btn.configure(text="⏸  Pause Automation", fg_color="#F59E0B", hover_color="#D97706", state="normal")
         self.terminate_btn.configure(state="normal")
         self.status_badge.configure(text="● RUNNING", fg_color=COLOR_SUCCESS, text_color="#FFFFFF")
 
@@ -623,10 +658,15 @@ class AutoJobApplierApp(ctk.CTk):
             self.after(0, self._on_process_finished)
 
     def terminate_script(self):
-        self.log_console("Terminating all automation processes & browser drivers...")
+        self.log_console("Stopping automation process...")
+        flag_path = os.path.join(os.path.dirname(__file__), "logs", "pause_bot.flag")
+        if os.path.exists(flag_path):
+            try: os.remove(flag_path)
+            except Exception: pass
+
         no_window_flag = subprocess.CREATE_NO_WINDOW if sys.platform.startswith('win') else 0
         try:
-            # 1. Kill bot process tree silently
+            # Kill bot process silently without closing Chrome
             if hasattr(self, 'bot_process') and self.bot_process:
                 try:
                     if sys.platform.startswith('win'):
@@ -638,38 +678,27 @@ class AutoJobApplierApp(ctk.CTk):
                         self.bot_process.kill()
                 except Exception:
                     pass
-
-            # 2. Kill docked Chrome window process tree silently
-            if HAS_WIN32 and getattr(self, 'docked_hwnd', None) and win32gui.IsWindow(self.docked_hwnd):
-                try:
-                    _, chrome_pid = win32process.GetWindowThreadProcessId(self.docked_hwnd)
-                    if chrome_pid:
-                        subprocess.call(
-                            ['taskkill', '/F', '/T', '/PID', str(chrome_pid)],
-                            creationflags=no_window_flag, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                        )
-                except Exception:
-                    pass
-
-            # 3. Kill all background chromedriver processes silently
-            if sys.platform.startswith('win'):
-                subprocess.call(
-                    ['taskkill', '/F', '/IM', 'chromedriver.exe'],
-                    creationflags=no_window_flag, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
         except Exception as e:
-            self.log_console(f"Error during termination: {e}")
+            self.log_console(f"Error during stopping: {e}")
 
         self._on_process_finished(terminated=True)
 
     def _on_process_finished(self, terminated=False):
         self.is_running = False
+        self.is_paused = False
         self.bot_process = None
-        self.start_btn.configure(state="normal")
+        flag_path = os.path.join(os.path.dirname(__file__), "logs", "pause_bot.flag")
+        if os.path.exists(flag_path):
+            try: os.remove(flag_path)
+            except Exception: pass
+
+        self.start_btn.configure(text="▶  Start Automation", fg_color=COLOR_SUCCESS, hover_color="#059669", state="normal")
         self.terminate_btn.configure(state="disabled")
 
         if terminated:
-            self.status_badge.configure(text="● TERMINATED", fg_color=COLOR_DANGER, text_color="#FFFFFF")
+            self.status_badge.configure(text="● STOPPED", fg_color=COLOR_DANGER, text_color="#FFFFFF")
+            self.log_console("Automation stopped. Browser remains open for review.")
+        else:
             self.log_console("Process terminated by user.")
         else:
             self.status_badge.configure(text="● FINISHED", fg_color=COLOR_PRIMARY, text_color="#FFFFFF")

@@ -45,6 +45,36 @@ def createChromeSession(isRetry: bool = False):
     else:
         print_lg("Logging in with a guest profile, Web history will not be saved!")
         options.add_argument(f"--user-data-dir={get_default_temp_profile()}")
+
+    # Try re-attaching to existing open Chrome session on debugging port 9222 if available
+    if not isRetry and not stealth_mode:
+        try:
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(0.5)
+            is_open = (sock.connect_ex(('127.0.0.1', 9222)) == 0)
+            sock.close()
+            if is_open:
+                print_lg("Found running Chrome session on port 9222! Re-attaching to existing browser...")
+                attach_options = Options()
+                attach_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+                if sys.platform.startswith('win'):
+                    import subprocess
+                    from selenium.webdriver.chrome.service import Service
+                    service = Service()
+                    service.creation_flags = subprocess.CREATE_NO_WINDOW
+                    driver = webdriver.Chrome(options=attach_options, service=service)
+                else:
+                    driver = webdriver.Chrome(options=attach_options)
+                wait = WebDriverWait(driver, 5)
+                actions = ActionChains(driver)
+                return attach_options, driver, actions, wait
+        except Exception as attach_err:
+            print_lg(f"Notice: Could not re-attach to existing Chrome: {attach_err}")
+
+    if not stealth_mode:
+        options.add_argument("--remote-debugging-port=9222")
+
     if stealth_mode:
         print_lg("Downloading Chrome Driver... This may take some time. Undetected mode requires download every run!")
         driver = uc.Chrome(options=options)

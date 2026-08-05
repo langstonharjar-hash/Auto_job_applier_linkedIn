@@ -156,7 +156,17 @@ def set_auto_mode(enabled: bool = True) -> None:
     global is_auto_mode_enabled
     is_auto_mode_enabled = enabled
 
+PAUSE_FLAG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "pause_bot.flag")
+
+def check_pause() -> None:
+    if os.path.exists(PAUSE_FLAG_PATH):
+        print_lg("⏸️  [AUTOMATION PAUSED] Process is paused. Click 'Resume Automation' in GUI to continue.")
+        while os.path.exists(PAUSE_FLAG_PATH):
+            sleep(0.5)
+        print_lg("▶️  [AUTOMATION RESUMED] Resuming job application process...")
+
 def buffer(speed: int=0) -> None:
+    check_pause()
     '''
     Function to wait within a period of selected random range.
     * In Auto Mode: Waits a random delay under 30 seconds (3.0 to 25.0 secs).
