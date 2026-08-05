@@ -60,7 +60,14 @@ pyautogui.FAILSAFE = False
 
 #< Global Variables and logics
 
-if run_in_background == True:
+is_auto_mode = any(arg.lower() in ["--auto", "-a", "--auto-mode", "auto"] for arg in sys.argv[1:])
+if is_auto_mode:
+    print_lg("--> [AUTO MODE ENABLED] Running without manual confirmation popups and with random delays under 30s...")
+    pause_after_filters = False
+    pause_before_submit = False
+    pause_at_failed_question = False
+    set_auto_mode(True)
+elif run_in_background == True:
     pause_at_failed_question = False
     pause_before_submit = False
     run_non_stop = False
@@ -450,11 +457,18 @@ def get_job_main_details(job: WebElement, blacklisted_companies: set, rejected_j
     work_style = work_location[work_location.rfind('(')+1:work_location.rfind(')')]
     work_location = work_location[:work_location.rfind('(')].strip()
     
-    # Skip if previously rejected due to blacklist or already applied
-    if company in blacklisted_companies:
+    # Skip if company matches bad words list or previously rejected due to blacklist or already applied
+    company_low = company.lower()
+    for bad_comp in about_company_bad_words:
+        if bad_comp.lower() in company_low:
+            print_lg(f'Skipping "{title} | {company}" job (Blacklisted Company/Word "{bad_comp}"). Job ID: {job_id}!')
+            skip = True
+            break
+
+    if not skip and company in blacklisted_companies:
         print_lg(f'Skipping "{title} | {company}" job (Blacklisted Company). Job ID: {job_id}!')
         skip = True
-    elif job_id in rejected_jobs: 
+    elif not skip and job_id in rejected_jobs: 
         print_lg(f'Skipping previously rejected "{title} | {company}" job. Job ID: {job_id}!')
         skip = True
     try:
@@ -1466,11 +1480,13 @@ def main() -> None:
             timeSaved += 60
             timeSavedMsg = f"In this run, you saved approx {round(timeSaved/60)} mins ({timeSaved} secs), please consider supporting the project."
         msg = f"{quotes}\n\n\n{timeSavedMsg}\nYou can also get your quote and name shown here, or prioritize your bug reports by supporting the project at:\n\nhttps://github.com/sponsors/GodsScion\n\n\nSummary:\n{summary}\n\n\nBest regards,\nSai Vignesh Golla\nhttps://www.linkedin.com/in/saivigneshgolla/\n\nTop Sponsors:\n{sponsors}"
-        pyautogui.alert(msg, "Exiting..")
+        if not is_auto_mode:
+            pyautogui.alert(msg, "Exiting..")
         print_lg(msg,"Closing the browser...")
         if tabs_count >= 10:
             msg = "NOTE: IF YOU HAVE MORE THAN 10 TABS OPENED, PLEASE CLOSE OR BOOKMARK THEM!\n\nOr it's highly likely that application will just open browser and not do anything next time!" 
-            pyautogui.alert(msg,"Info")
+            if not is_auto_mode:
+                pyautogui.alert(msg,"Info")
             print_lg("\n"+msg)
         ##> ------ Yang Li : MARKYangL - Feature ------
         if use_AI and aiClient:
