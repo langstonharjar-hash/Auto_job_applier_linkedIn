@@ -1,5 +1,7 @@
 @echo off
-title Auto Job Applier LinkedIn App
 cd /d "%~dp0"
-echo Launching Auto Job Applier Desktop Application...
-".venv\Scripts\python.exe" "app_gui.py"
+if exist ".venv\Scripts\pythonw.exe" (
+    start "" ".venv\Scripts\pythonw.exe" "app_gui.py"
+) else (
+    start "" pythonw "app_gui.py"
+)

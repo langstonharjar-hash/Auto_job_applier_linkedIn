@@ -132,18 +132,21 @@ __logs_file_path = get_log_path()
 
 def print_lg(*msgs: str | dict, end: str = "\n", pretty: bool = False, flush: bool = False, from_critical: bool = False) -> None:
     '''
-    Function to log and print. **Note that, `end` and `flush` parameters are ignored if `pretty = True`**
+    Function to log and print with non-blocking retry handling for file access.
     '''
-    try:
-        for message in msgs:
+    for message in msgs:
+        try:
             pprint(message) if pretty else print(message, end=end, flush=flush)
-            with open(__logs_file_path, 'a+', encoding="utf-8") as file:
-                file.write(str(message) + end)
-    except Exception as e:
-        trail = f'Skipped saving this message: "{message}" to log.txt!' if from_critical else "We'll try one more time to log..."
-        alert(f"log.txt in {logs_folder_path} is open or is occupied by another program! Please close it! {trail}", "Failed Logging")
-        if not from_critical:
-            critical_error_log("Log.txt is open or is occupied by another program!", e)
+        except Exception:
+            pass
+
+        for _ in range(3):
+            try:
+                with open(__logs_file_path, 'a+', encoding="utf-8") as file:
+                    file.write(str(message) + end)
+                break
+            except Exception:
+                sleep(0.05)
 #>
 
 

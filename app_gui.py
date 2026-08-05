@@ -198,9 +198,10 @@ class AutoJobApplierApp(ctk.CTk):
 
     def _run_process_thread(self, cmd):
         try:
+            creation_flags = (subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP) if sys.platform.startswith('win') else 0
             self.bot_process = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                text=True, bufsize=1, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform.startswith('win') else 0
+                text=True, bufsize=1, creationflags=creation_flags
             )
 
             for line in iter(self.bot_process.stdout.readline, ''):
